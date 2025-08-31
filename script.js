@@ -622,7 +622,7 @@ function draw() {
     // הגדרת מיקום הגובה הכולל לפי צד
     let xTotal;
     if (sideSelect === "right") {
-        xTotal = padX - W + 10; // בצד ימין
+        xTotal = padX - W; // בצד ימין
     } else {
         xTotal = padX + W * 2;     // בצד שמאל
     }
