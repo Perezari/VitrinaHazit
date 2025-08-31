@@ -622,7 +622,7 @@ function draw() {
     // הגדרת מיקום הגובה הכולל לפי צד
     let xTotal;
     if (sideSelect === "right") {
-        xTotal = padX - W; // בצד ימין
+        xTotal = padX - W + 10; // בצד ימין
     } else {
         xTotal = padX + W * 2;     // בצד שמאל
     }
@@ -633,7 +633,16 @@ function draw() {
     addDimDot(svg, xTotal - 10, padY);
     addDimDot(svg, xTotal - 10, padY + H);
     // תווית הגובה הכולל
-    svg.insertAdjacentHTML('beforeend', `<text x="${xTotal - 20}" y="${padY + H / 2}" transform="rotate(-90,${xTotal - 20},${padY + H / 2})">${cabH}</text>`);
+svg.insertAdjacentHTML('beforeend', `
+  <text 
+    x="${xTotal - 20}" 
+    y="${padY + H / 2}" 
+    transform="rotate(-90,${xTotal - 20},${padY + H / 2})" 
+    text-anchor="middle" 
+    dominant-baseline="middle">
+    ${cabH}
+  </text>
+`);
 
     // שרשראות ומדידות (ימין/שמאל)
     let xRightDim, xLeftDim;
