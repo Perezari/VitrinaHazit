@@ -657,7 +657,7 @@ svg.insertAdjacentHTML('beforeend', `
     // שרשרת ימין
     let yR = padY;
     addDimDot(svg, xRightDim, yR);
-    svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xRightDim}" y1="${yR + 2}" x2="${xRightDim}" y2="${yR + rEdge * scale}"></line>`);
+    svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xRightDim}" y1="${yR}" x2="${xRightDim}" y2="${yR + rEdge * scale}"></line>`);
     addDimDot(svg, xRightDim, yR + (rEdge * scale));
     svg.insertAdjacentHTML('beforeend', `<text x="${xRightDim + 20}" y="${yR + (rEdge * scale) / 2 + 7}" dominant-baseline="middle" transform="rotate(-90, ${xRightDim + 10}, ${yR + (rEdge * scale) / 2})">${rEdge}</text>`);
     yR += rEdge * scale;
@@ -671,7 +671,7 @@ svg.insertAdjacentHTML('beforeend', `
         }
 
         // קו
-        svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xRightDim}" y1="${yR + 2}" x2="${xRightDim}" y2="${yR + rMidStep * scale}"></line>`);
+        svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xRightDim}" y1="${yR}" x2="${xRightDim}" y2="${yR + rMidStep * scale}"></line>`);
 
         // נקודה
         addDimDot(svg, xRightDim, yR + (rMidStep * scale));
@@ -682,7 +682,7 @@ svg.insertAdjacentHTML('beforeend', `
         yR += rMidStep * scale;
     }
 
-    svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xRightDim}" y1="${yR + 2}" x2="${xRightDim}" y2="${padY + H}"></line>`);
+    svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xRightDim}" y1="${yR}" x2="${xRightDim}" y2="${padY + H}"></line>`);
     addDimDot(svg, xRightDim, padY + H);
     svg.insertAdjacentHTML('beforeend', `<text x="${xRightDim + 20}" y="${yR + (padY + H - yR) / 2 + 7}" dominant-baseline="middle" transform="rotate(-90, ${xRightDim + 10}, ${yR + (padY + H - yR) / 2})">${rEdge}</text>`);
 
