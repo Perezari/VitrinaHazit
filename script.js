@@ -428,6 +428,7 @@ async function downloadPdf() {
 
             const fixedValue = (label === 'מספר יחידה' 
                  || label === 'גוון פרופיל' 
+                 || label === 'מספר תוכנית'
                  || label === 'סוג זכוכית')
     ? value 
     : fixHebrew(value);
