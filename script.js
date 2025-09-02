@@ -580,7 +580,8 @@ function draw() {
   </defs>
   `;
   
-const profileType = document.getElementById('profileType').value;
+const profileType = document.getElementById('profileType').selectedOptions[0].text;
+
 // ברירת מחדל
 let GERONG = true; 
 
@@ -611,7 +612,12 @@ switch(profileType) {
         PAD_SIDES = 45;
         PAD_TOPBOT = 19;
 		GERONG = false;
-        break;
+		break;
+	case "ג'נסיס":
+		PAD_SIDES = 0;
+		PAD_TOPBOT = 0;
+		GERONG = true;
+		break;
     case "424":
         innerFrameStrokeWidth = 0.5;
         PAD_SIDES = 42;
@@ -655,22 +661,139 @@ else {
     `);
 }
 
-    // ✅ קידוחים עגולים בדלת
-    const drillR = 0.5;
-    const drillOffsetRight = 9.5; // הזזה אופקית לשרשרת ימין
+// קידוחים עגולים בדלת
+const drillR = 0.5;
+const drillOffsetRight = 9.5; // הזזה אופקית לשרשרת ימין
+const extraDrillOffset = 32 * scale;  // מרחק קידוח נוסף לג'נסיס (במ״מ -> פיקסלים)
+// ✅ עומק קידוח מקו החזית לפי סוג פרופיל
+let frontDrillOffset = 8; // ברירת מחדל
+if (profileType === "ג'נסיס") {
+    frontDrillOffset = 42.5 * scale;
+}
 
-    // --- קידוחים לאורך השרשרת הימנית (או שמאל לפי sideSelect) ---
-    let yDrill = padY + rEdge * scale; // קידוח תחתון בדיוק בגובה rEdge
-    let xRightDrill = padX + W - drillOffsetRight + 8;
-    if (sideSelect === "left") {
-        xRightDrill = padX + drillOffsetRight - 8; // שרשרת שמאל
+// --- קידוחים לאורך השרשרת הימנית (או שמאל לפי sideSelect) ---
+let yDrill = padY + rEdge * scale; // קידוח תחתון בדיוק בגובה rEdge
+let xRightDrill = padX + W - drillOffsetRight + frontDrillOffset;
+
+if (sideSelect === "left") {
+    xRightDrill = padX + drillOffsetRight - frontDrillOffset;
+}
+
+let frontDimAdded = false; // דגל גלובלי למניעת חזרות
+
+function addDrill(x, y) {
+    // קידוח רגיל
+    svg.insertAdjacentHTML(
+        'beforeend',
+        `<circle cx="${x}" cy="${y}" r="${drillR}" fill="none" stroke="#2c3e50" stroke-width="1"/>`
+    );
+
+    // אם זה פרופיל ג'נסיס – מוסיפים עוד אחד מעל (בהיסט של 32 מ״מ)
+    if (profileType === "ג'נסיס") {
+		
+        const newY = y - extraDrillOffset;
+        svg.insertAdjacentHTML(
+            'beforeend',
+            `<circle cx="${x}" cy="${newY}" r="${drillR}" fill="none" stroke="#2c3e50" stroke-width="1"/>`
+        );
+
+        if (!frontDimAdded) {
+            // --- קו מקווקוו מקורי ---
+            const lineYStart = newY;
+            const lineYEnd = newY - 30;
+            const lineX = (sideSelect === "left") ? padX : padX + W;
+
+            const verticalLine = document.createElementNS("http://www.w3.org/2000/svg","line");
+            verticalLine.setAttribute("x1", lineX);
+            verticalLine.setAttribute("y1", lineYStart);
+            verticalLine.setAttribute("x2", lineX);
+            verticalLine.setAttribute("y2", lineYEnd);
+            verticalLine.setAttribute("stroke","#007acc");
+            verticalLine.setAttribute("stroke-width","1");
+            verticalLine.setAttribute("stroke-dasharray","4,2"); // קו מקווקוו
+            svg.appendChild(verticalLine);
+
+// --- קו מקביל נוסף (מרחק 21 מ"מ) ---
+let parallelX;
+if (sideSelect === "left") {
+    parallelX = lineX + frontDrillOffset/2 - 1; // הזזה לכיוון הפנימי של הדלת
+} else {
+    parallelX = lineX - frontDrillOffset/2 + 1; // הזזה לכיוון הפנימי של הדלת
+}
+
+const parallelLine = document.createElementNS("http://www.w3.org/2000/svg","line");
+parallelLine.setAttribute("x1", parallelX);
+parallelLine.setAttribute("y1", lineYStart);
+parallelLine.setAttribute("x2", parallelX);
+parallelLine.setAttribute("y2", lineYEnd);
+parallelLine.setAttribute("stroke","#007acc");
+parallelLine.setAttribute("stroke-width","1");
+parallelLine.setAttribute("stroke-dasharray","4,2");
+svg.appendChild(parallelLine);
+
+            // --- קו אופקי קצר לקידוח עם טקסט ---
+            const horizontalLine = document.createElementNS("http://www.w3.org/2000/svg","line");
+            horizontalLine.setAttribute("x1", lineX + 5);
+            horizontalLine.setAttribute("y1", lineYEnd);
+            horizontalLine.setAttribute("x2", x - 5);
+            horizontalLine.setAttribute("y2", lineYEnd);
+            horizontalLine.setAttribute("stroke","#007acc");
+            horizontalLine.setAttribute("stroke-width","1");
+            svg.appendChild(horizontalLine);
+
+            // --- טקסט מידה מעל הקו ---
+            const dimText = document.createElementNS("http://www.w3.org/2000/svg","text");
+            dimText.setAttribute("x", (lineX + x)/2);
+            dimText.setAttribute("y", lineYEnd - 5);
+            dimText.setAttribute("text-anchor", "middle");
+            dimText.setAttribute("class", "dim-text");
+            dimText.textContent = "42.5 מ\"מ";
+            svg.appendChild(dimText);
+			
+    const centerX = padX + W + 6; // מרכז רוחבי של החזית
+
+    const lines = [
+        "קידוח לצירים בקוטר 2.5 מ\"מ"
+    ];
+
+    const fontSize = 10;        // גודל הטקסט
+    const lineHeight = fontSize + 2; // ריווח בין השורות
+    const totalHeight = lines.length * lineHeight;
+
+    lines.forEach((line, i) => {
+        const textLine = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        textLine.setAttribute("x", centerX);
+        textLine.setAttribute("y", padY + H + 20 + i * lineHeight); // מתחת לדלת
+        textLine.setAttribute("text-anchor", "middle");      // ממרכז את השורה אופקית
+        textLine.setAttribute("dominant-baseline", "middle"); // ממרכז את השורה אנכית
+        textLine.setAttribute("font-size", fontSize);
+        textLine.setAttribute("class", "dim-text");
+        textLine.textContent = line;
+
+        // --- חיזוק מרכזיות ל-PDF: translate לא נדרש, רק לוודא x=centerX ---
+        svg.appendChild(textLine);
+    });
+	
+	    const prepForInput = document.getElementById("prepFor");
+    if (prepForInput) {
+        prepForInput.value = "צירים לדלת דקה"; // הערך האוטומטי
     }
-    svg.insertAdjacentHTML('beforeend', `<circle cx="${xRightDrill}" cy="${yDrill}" r="${drillR}" fill="none" stroke="#2c3e50" stroke-width="1"/>`);
-    for (let i = 0; i < rMidCount; i++) {
-        yDrill += rMidStep * scale;
-        svg.insertAdjacentHTML('beforeend', `<circle cx="${xRightDrill}" cy="${yDrill}" r="${drillR}" fill="none" stroke="#2c3e50" stroke-width="1"/>`);
+
+            frontDimAdded = true; // סמן שהקו נוספה
+        }
     }
-    yDrill += rEdge * scale / 2;
+}
+
+// קידוח ראשון
+addDrill(xRightDrill, yDrill);
+
+// קידוחים אמצעיים
+for (let i = 0; i < rMidCount; i++) {
+    yDrill += rMidStep * scale;
+    addDrill(xRightDrill, yDrill);
+}
+
+yDrill += rEdge * scale / 2;
 
     // ממדים ורוחב
     const dimY1 = padY + H + 50;
@@ -788,6 +911,38 @@ if (downloadBtn) {
         }
     });
 }
+
+// Map של ספקים לפרופילים
+const profilesMap = {
+  bluran: ["קואדרו", "זירו"],
+  nilsen: ["424", "ג'נסיס"]
+};
+
+const sapakSelect = document.getElementById("Sapak");
+const profileSelect = document.getElementById("profileType");
+
+// פונקציה למילוי profileType
+function fillProfileOptions() {
+    const selectedSapak = sapakSelect.value;
+    const options = profilesMap[selectedSapak] || [];
+
+    // מחיקה של כל האפשרויות הישנות
+    profileSelect.innerHTML = "";
+
+    // הוספת אפשרויות חדשות
+    options.forEach(profile => {
+        const optionEl = document.createElement("option");
+        optionEl.value = profile;
+        optionEl.textContent = profile;
+        profileSelect.appendChild(optionEl);
+    });
+}
+
+// מילוי בפעם הראשונה לפי הספק שנבחר כבר
+fillProfileOptions();
+
+// מאזין לשינוי בספק
+sapakSelect.addEventListener("change", fillProfileOptions);
 
 // הפעלה ראשונית
 draw();
