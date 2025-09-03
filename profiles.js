@@ -67,9 +67,9 @@ window.ProfileConfig = (function () {
             extraDrillOffset: 32, //מרחק בין קידוח לקידוח
             hasDualDrill: true, //האם לתת קידוח כפול
             defaultPrepFor: "צירים לדלת דקה", //הכנה עבור
-            description: "קידוח לצירים בקוטר 2.5 מ\"מ", //תיאור
-            rightNotes: "הכנה לצירים", //תיאור
-            LeftNotes: "הכנה לצירים", //תיאור
+            description: "", //תיאור
+            rightNotes: "הכנה לצירים - קוטר קידוח 2.5 מ\"מ", //תיאור
+            LeftNotes: "", //תיאור
         },
         "424": {
             // מסגרת פנימית

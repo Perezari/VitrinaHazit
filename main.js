@@ -129,8 +129,8 @@ function fixHebrewText(svgRoot) {
 function centerDimensionNumbers(svgRoot) {
     const numRegex = /^[\d\s\.\-+×xX*]+(?:mm|מ"מ|)$/;
 
-    // גודל האופסט מהקו (יכול להיות חיובי או שלילי)
-    const offset = 20; // ניתן לשנות את הערך לפי הצורך
+    // גודל הפונט אחיד
+    const fontSize = 12;
 
     svgRoot.querySelectorAll('text').forEach(t => {
         const raw = t.textContent || '';
@@ -141,37 +141,35 @@ function centerDimensionNumbers(svgRoot) {
             // מרכז אופקי
             t.setAttribute('text-anchor', 'middle');
 
-            // **שורה חדשה לשינוי גודל הפונט**
-            t.setAttribute('font-size', '12'); // כאן אפשר לשים כל ערך שתרצה בפיקסלים
+            // גודל פונט אחיד
+            t.setAttribute('font-size', fontSize);
 
-            // --- הערות שלך: ביטלתי dominant-baseline / alignment-baseline כדי לא לשבור סיבוב
-            // t.setAttribute('dominant-baseline', 'middle');
-            // t.setAttribute('alignment-baseline', 'middle');
-            // t.setAttribute('dy', '0.35em');
-
-            // אם הטקסט מסתובב, לחשב מחדש את ה-x וה-y עם אופסט קטן
+            // בדיקה אם יש סיבוב
             const transform = t.getAttribute('transform');
             if (transform && transform.includes('rotate')) {
                 const match = /rotate\(([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\)/.exec(transform);
                 if (match) {
                     const xRot = parseFloat(match[2]);
                     const yRot = parseFloat(match[3]);
-                    // הזזת הטקסט מהקו
                     const angle = parseFloat(match[1]);
+
                     if (Math.abs(angle) === 90) {
-                        // טקסט אנכי: הזזה אופקית
+                        // טקסט אנכי: הזזה אופקית למרכז
+                        const bbox = t.getBBox();
                         t.setAttribute('x', xRot);
                         t.setAttribute('y', yRot + 5);
                     } else {
-                        // טקסט אופקי: הזזה אנכית
+                        // טקסט אופקי: השארת מיקום בסיסי
+                        const bbox = t.getBBox();
                         t.setAttribute('x', xRot);
                         t.setAttribute('y', yRot);
                     }
                 }
             } else {
-                // טקסט אופקי רגיל: הזזה אנכית מהקו
+                // טקסט אופקי רגיל: מרכז אנכי לפי bbox
+                const bbox = t.getBBox();
                 const y = parseFloat(t.getAttribute('y') || '0');
-                t.setAttribute('y', y - offset - 5);
+                t.setAttribute('y', y);
             }
         }
     });
@@ -270,7 +268,7 @@ function forceNoteBoxesSize(svgRoot, w = NOTE_BOX_W, h = NOTE_BOX_H) {
         const cy = tb.y + tb.height / 2;
 
         // קופסה קבועה סביב הטקסט
-        const x = cx - w / 2 - 5;
+        const x = cx - w / 2 - 9;
         const y = cy - h / 2 - 5;
 
         rect.setAttribute('x', String(x));
@@ -565,6 +563,8 @@ function draw() {
     const padX = 500, padY = 50;
     const W = frontW * scale, H = cabH * scale;
     const sideSelect = document.getElementById('sideSelect').value;
+    const profileSelect = document.getElementById("profileType").value;
+
 
     const svg = document.getElementById('svg');
     const overlay = document.querySelector('.svg-overlay');
@@ -824,7 +824,7 @@ function draw() {
     yDrill += rEdge * scale / 2;
 
     // ממדים ורוחב
-    const dimY1 = padY + H + 50;
+    const dimY1 = padY + H + 30;
     svg.insertAdjacentHTML('beforeend', `<line 
                                          class="dim"
                                          x1="${padX}" 
@@ -833,7 +833,6 @@ function draw() {
                                          y2="${dimY1}">
                                          </line>`);
     // נקודות רוחב כולל
-
     addDimDot(svg, padX, dimY1);
     addDimDot(svg, padX + W, dimY1);
     svg.insertAdjacentHTML('beforeend', `<text 
@@ -846,9 +845,9 @@ function draw() {
     // הגדרת מיקום הגובה הכולל לפי צד
     let xTotal;
     if (sideSelect === "right") {
-        xTotal = padX - W + 10; // בצד ימין
+        xTotal = padX - 30; // בצד ימין
     } else {
-        xTotal = padX + W * 2;     // בצד שמאל
+        xTotal = padX + W + 40;     // בצד שמאל
     }
 
     // ציור קו הגובה הכולל
@@ -875,11 +874,11 @@ function draw() {
     // שרשראות ומדידות (ימין/שמאל)
     let xRightDim, xLeftDim;
     if (sideSelect === "right") {
-        xRightDim = padX + W + 70;
-        xLeftDim = padX - 70;
+        xRightDim = padX + W + 30;
+        xLeftDim = padX - 30;
     } else {
-        xRightDim = padX - 70;
-        xLeftDim = padX + W + 70;
+        xRightDim = padX - 40;
+        xLeftDim = padX + W + 40;
     }
 
     // שרשרת ימין
@@ -939,12 +938,17 @@ function draw() {
     addDimDot(svg, xRightDim, padY + H);
     svg.insertAdjacentHTML('beforeend', `<text x="${xRightDim + 20}" y="${yR + (padY + H - yR) / 2 + 7}" dominant-baseline="middle" transform="rotate(-90, ${xRightDim + 10}, ${yR + (padY + H - yR) / 2})">${rEdge}</text>`);
 
-    // הוספת הערות
+    const trueLeft = padX - 35;     // הקו הקיצוני בשמאל
+    const trueRight = padX + W + 30; // הקו הקיצוני בימין
+    const noteHeight = padY + H / 2;
+    const noteOffset = 50;
+
     if (sideSelect === "right") {
-        addNoteRotated(svg, xRightDim + 60, padY + 180, settings.rightNotes, 90);
-    }
-    else {
-        addNoteRotated(svg, xLeftDim - 300, padY + 170, settings.LeftNotes, -90);
+        // מצב רגיל
+        addNoteRotated(svg, trueRight + noteOffset, noteHeight, settings.rightNotes, 90);
+    } else {
+        // מצב שמאל – מתחלף
+        addNoteRotated(svg, trueLeft - noteOffset, noteHeight, settings.rightNotes, -90);
     }
 
     // סיכום מידות
