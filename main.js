@@ -1120,14 +1120,24 @@ excelFile.addEventListener("change", function (e) {
 function searchUnit(unitNum) {
     if (!excelRows.length || !unitNum) return;
 
-    const row = excelRows.find(r => {
+    // מסננים לפי מספר יחידה
+    const candidates = excelRows.filter(r => {
         const val = r['יחידה'];
-        if (val === undefined) return false;
-        return String(val).trim() === String(unitNum).trim();
+        return val !== undefined && String(val).trim() === String(unitNum).trim();
     });
 
-    if (!row) return;
+    if (!candidates.length) return;
 
+    // בוחרים שורה שהיא דלת (ימין או שמאל), אם קיימת
+    let row = candidates.find(r => {
+        const partName = (r['שם החלק'] || "").toLowerCase();
+        return partName.includes("ימין") || partName.includes("שמאל");
+    });
+
+    // אם לא נמצאה דלת – נ fallback לשורה הראשונה (כמו קודם)
+    if (!row) row = candidates[0];
+
+    // עדכון שדות
     frontW.value = row['רוחב'] || '';
     cabH.value = row['אורך'] || '';
 
@@ -1136,6 +1146,7 @@ function searchUnit(unitNum) {
         const partName = row['שם החלק'].toLowerCase();
         if (partName.includes('ימין')) sideSelect.value = 'right';
         else if (partName.includes('שמאל')) sideSelect.value = 'left';
+        else sideSelect.value = '';
     }
 
     // סוג חומר -> גוון + סוג פרופיל
@@ -1143,7 +1154,6 @@ function searchUnit(unitNum) {
         const [color, type] = row['סוג החומר'].split('_');
         document.getElementById('profileColor').value = color || '';
 
-        // חיפוש ספק לפי סוג הפרופיל
         let foundSupplier = null;
         for (const supplier in ProfileConfig.SUPPLIERS_PROFILES_MAP) {
             if (ProfileConfig.SUPPLIERS_PROFILES_MAP[supplier].includes(type)) {
@@ -1153,9 +1163,8 @@ function searchUnit(unitNum) {
         }
 
         if (foundSupplier) {
-            // עדכון הספק בשדה עם שם בעברית
             sapakSelect.value = foundSupplier;
-            fillProfileOptions(); // עדכון הרשימה בהתאם לספק
+            fillProfileOptions();
         }
 
         profileSelect.value = type || '';
