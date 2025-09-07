@@ -37,7 +37,7 @@ const PROFILE_SETTINGS = {
         "rightNotes": "הכנה לצירים",
         "LeftNotes": "הכנה לצירים"
     },
-    "4272": {
+    "427": {
         "innerFrameStroke": "#2c3e50",
         "innerFrameStrokeWidth": 0.5,
         "innerFrameFill": "none",
