@@ -89,13 +89,13 @@ function editDimension(textElement, dimensionId) {
     input.type = "text";
     input.value = currentValue;
     input.style.position = "absolute";
-    input.style.left = (rect.left - svgRect.left + 20) + "px";
-    input.style.top = (rect.top - svgRect.top - 10) + "px";
-    input.style.width = "60px";
+    input.style.left = (rect.left - svgRect.left + 25) + "px";
+    input.style.top = (rect.top - svgRect.top + 2) + "px";
+    input.style.width = "45px";
     input.style.height = "25px";
     input.style.fontSize = "12px";
     input.style.textAlign = "center";
-    input.style.border = "2px solid #007acc";
+    input.style.border = "1px dashed #007acc";
     input.style.borderRadius = "4px";
     input.style.backgroundColor = "white";
     input.style.zIndex = "1000";
