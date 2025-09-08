@@ -41,7 +41,7 @@ style.textContent = additionalCSS;
 document.head.appendChild(style);
 
 // פונקציה ליצירת מידה ניתנת לעריכה
-function createEditableDimension(svg, x, y, value, id, rotation = 0, rotateX = null, rotateY = null) {
+function createEditableDimension(svg, x, y, value, id, rotation = 0, rotateX = null, rotateY = null, editable = true) {
     // שמירת הערך במשתנה הגלובלי
     editableDimensions[id] = value;
 
@@ -55,17 +55,24 @@ function createEditableDimension(svg, x, y, value, id, rotation = 0, rotateX = n
         text.setAttribute("transform", `rotate(${rotation}, ${rotateX}, ${rotateY})`);
     }
 
-    text.setAttribute("class", "dim-text editable-dimension");
+    text.setAttribute("class", "dim-text");
     text.setAttribute("data-dimension-id", id);
-    text.setAttribute("style", "cursor: pointer; user-select: none;");
+    text.setAttribute("style", "user-select: none;");
+
     text.textContent = value;
 
-    // הוספת מאזין לדאבל קליק
-    text.addEventListener("dblclick", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        editDimension(text, id);
-    });
+    // רק אם הפרמטר EDITABLE = true נוסיף את הקלאס ואת האירוע
+    if (editable) {
+        text.classList.add("editable-dimension");
+        text.style.cursor = "pointer";
+
+        // הוספת מאזין לדאבל קליק
+        text.addEventListener("dblclick", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            editDimension(text, id);
+        });
+    }
 
     svg.appendChild(text);
     return text;
@@ -809,7 +816,7 @@ function draw() {
     addDimDot(svg, padX, dimY1);
     addDimDot(svg, padX + W, dimY1);
     // שימוש ב-createEditableDimension במקום insertAdjacentHTML רגיל
-    createEditableDimension(svg, padX + W / 2, dimY1 + 16, frontW, `frontW`, 0);
+    createEditableDimension(svg, padX + W / 2, dimY1 + 16, frontW, `frontW`, 0, null, null, false);
 
     // הגדרת מיקום הגובה הכולל לפי צד
     let xTotal;
@@ -831,7 +838,7 @@ function draw() {
     addDimDot(svg, xTotal - 10, padY);
     addDimDot(svg, xTotal - 10, padY + H);
     // שימוש ב-createEditableDimension במקום insertAdjacentHTML רגיל
-    createEditableDimension(svg, xTotal - 20, padY + H / 2, cabH, `cabH`, -90, xTotal - 20, padY + H / 2);
+    createEditableDimension(svg, xTotal - 20, padY + H / 2, cabH, `cabH`, -90, xTotal - 20, padY + H / 2, null, null, false);
 
     // שרשראות ומדידות (ימין/שמאל)
     let xRightDim, xLeftDim;
