@@ -19,6 +19,124 @@ batchSaveBtn.style.display = 'none';
 const excelFileInput = document.getElementById('excelFile');
 const fileNameSpan = document.querySelector('.file-name');
 
+// משתנה גלובלי לשמירת המידות הניתנות לעריכה
+let editableDimensions = {};
+
+// CSS נוסף לעריכת מידות
+const additionalCSS = `
+.editable-dimension:hover {
+    fill: #007acc !important;
+    font-weight: bold;
+}
+
+.editable-dimension {
+    transition: fill 0.2s ease;
+    cursor: pointer;
+}
+`;
+
+// הוספת ה-CSS לעמוד
+const style = document.createElement('style');
+style.textContent = additionalCSS;
+document.head.appendChild(style);
+
+// פונקציה ליצירת מידה ניתנת לעריכה
+function createEditableDimension(svg, x, y, value, id, rotation = 0, rotateX = null, rotateY = null) {
+    // שמירת הערך במשתנה הגלובלי
+    editableDimensions[id] = value;
+
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("x", x);
+    text.setAttribute("y", y);
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "middle");
+
+    if (rotation !== 0 && rotateX !== null && rotateY !== null) {
+        text.setAttribute("transform", `rotate(${rotation}, ${rotateX}, ${rotateY})`);
+    }
+
+    text.setAttribute("class", "dim-text editable-dimension");
+    text.setAttribute("data-dimension-id", id);
+    text.setAttribute("style", "cursor: pointer; user-select: none;");
+    text.textContent = value;
+
+    // הוספת מאזין לדאבל קליק
+    text.addEventListener("dblclick", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        editDimension(text, id);
+    });
+
+    svg.appendChild(text);
+    return text;
+}
+
+// פונקציה לעריכת מידה
+function editDimension(textElement, dimensionId) {
+    const currentValue = editableDimensions[dimensionId];
+    const rect = textElement.getBoundingClientRect();
+    const svgRect = document.getElementById('svg').getBoundingClientRect();
+
+    // יצירת input זמני
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = currentValue;
+    input.style.position = "absolute";
+    input.style.left = (rect.left - svgRect.left + 20) + "px";
+    input.style.top = (rect.top - svgRect.top - 10) + "px";
+    input.style.width = "60px";
+    input.style.height = "25px";
+    input.style.fontSize = "12px";
+    input.style.textAlign = "center";
+    input.style.border = "2px solid #007acc";
+    input.style.borderRadius = "4px";
+    input.style.backgroundColor = "white";
+    input.style.zIndex = "1000";
+    input.style.direction = "ltr";
+
+    // הוספת ה-input למכל ה-SVG
+    const svgContainer = document.getElementById('svg').parentElement;
+    svgContainer.appendChild(input);
+
+    // פוקוס וסלקט כל הטקסט
+    input.focus();
+    input.select();
+
+    // פונקציה לשמירת הערך
+    function saveValue() {
+        const newValue = input.value.trim();
+        if (newValue && !isNaN(newValue)) {
+            editableDimensions[dimensionId] = newValue;
+            textElement.textContent = newValue;
+        }
+        svgContainer.removeChild(input);
+    }
+
+    // פונקציה לביטול העריכה
+    function cancelEdit() {
+        svgContainer.removeChild(input);
+    }
+
+    // מאזינים לאירועים
+    input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+            saveValue();
+        } else if (e.key === "Escape") {
+            cancelEdit();
+        }
+    });
+
+    input.addEventListener("blur", function () {
+        saveValue();
+    });
+}
+
+// פונקציה לאיפוס המידות לערכים המקוריים (אופציונלי)
+function resetDimensions() {
+    editableDimensions = {};
+    draw(); // צייר מחדש עם הערכים המקוריים
+}
+
 // Adds a small dot (circle) to the SVG at specified coordinates.
 // Sets default fill and stroke colors for visibility.
 // Ensures the stroke remains thin and sharp when scaling or printing.
@@ -342,36 +460,36 @@ async function downloadPdf() {
             const logoHeight = 25;
             pdf.addImage(logo, "PNG", 10, 10, logoWidth, logoHeight);
         }
-		
-		async function addLogoSvg(pdf, logo) {
-			if (!logo) return;
 
-			let svgText;
+        async function addLogoSvg(pdf, logo) {
+            if (!logo) return;
 
-			// בדיקה אם זה Data URI (base64)
-			if (logo.startsWith("data:image/svg+xml")) {
-				const base64 = logo.split(",")[1];
-				svgText = atob(base64);
-			} else {
-				// SVG כטקסט רגיל
-				svgText = logo;
-			}
+            let svgText;
 
-			// ממירים ל־DOM
-			const svgElement = new DOMParser().parseFromString(svgText, "image/svg+xml").documentElement;
+            // בדיקה אם זה Data URI (base64)
+            if (logo.startsWith("data:image/svg+xml")) {
+                const base64 = logo.split(",")[1];
+                svgText = atob(base64);
+            } else {
+                // SVG כטקסט רגיל
+                svgText = logo;
+            }
 
-			// מוסיפים ל־PDF
-			await pdf.svg(svgElement, {
-				x: 10,
-				y: 10,
-				width: 40,
-				height: 25
-			});
-		}
+            // ממירים ל־DOM
+            const svgElement = new DOMParser().parseFromString(svgText, "image/svg+xml").documentElement;
 
-		// לוגו מ־ProfileConfig (יכול להיות טקסט או Data URI)
-		const logo = ProfileConfig.getLogoBySupplier("avivi_svg"); 
-		await addLogoSvg(pdf, logo);
+            // מוסיפים ל־PDF
+            await pdf.svg(svgElement, {
+                x: 10,
+                y: 10,
+                width: 40,
+                height: 25
+            });
+        }
+
+        // לוגו מ־ProfileConfig (יכול להיות טקסט או Data URI)
+        const logo = ProfileConfig.getLogoBySupplier("avivi_svg");
+        await addLogoSvg(pdf, logo);
 
         const requiredFields = [
             'Sapak',
@@ -690,12 +808,8 @@ function draw() {
     // נקודות רוחב כולל
     addDimDot(svg, padX, dimY1);
     addDimDot(svg, padX + W, dimY1);
-    svg.insertAdjacentHTML('beforeend', `<text 
-                                         x="${padX + W / 2}" 
-                                         y="${dimY1 + 16}" 
-                                         text-anchor="middle">
-                                         ${frontW}
-                                         </text>`);
+    // שימוש ב-createEditableDimension במקום insertAdjacentHTML רגיל
+    createEditableDimension(svg, padX + W / 2, dimY1 + 16, frontW, `frontW`, 0);
 
     // הגדרת מיקום הגובה הכולל לפי צד
     let xTotal;
@@ -716,15 +830,8 @@ function draw() {
     // נקודות גובה כולל
     addDimDot(svg, xTotal - 10, padY);
     addDimDot(svg, xTotal - 10, padY + H);
-    // תווית הגובה הכולל
-    svg.insertAdjacentHTML('beforeend', `<text 
-                                        x="${xTotal - 20}" 
-                                        y="${padY + H / 2}" 
-                                        transform="rotate(-90,${xTotal - 20},${padY + H / 2})" 
-                                        text-anchor="middle" 
-                                        dominant-baseline="middle">
-                                        ${cabH}
-                                        </text>`);
+    // שימוש ב-createEditableDimension במקום insertAdjacentHTML רגיל
+    createEditableDimension(svg, xTotal - 20, padY + H / 2, cabH, `cabH`, -90, xTotal - 20, padY + H / 2);
 
     // שרשראות ומדידות (ימין/שמאל)
     let xRightDim, xLeftDim;
@@ -748,13 +855,8 @@ function draw() {
                                          </line>`);
 
     addDimDot(svg, xRightDim, yR + (rEdge * scale));
-    svg.insertAdjacentHTML('beforeend', `<text 
-                                         x="${xRightDim + 20}" 
-                                         y="${yR + (rEdge * scale) / 2 + 7}" 
-                                         dominant-baseline="middle"
-                                         transform="rotate(-90, ${xRightDim + 10}, ${yR + (rEdge * scale) / 2})">
-                                         ${rEdge}
-                                         </text>`);
+    // שימוש ב-createEditableDimension במקום insertAdjacentHTML רגיל
+    createEditableDimension(svg, xRightDim + 10, yR + (rEdge * scale) / 2 + 7, rEdge, `rEdge-top`, -90, xRightDim + 10, yR + (rEdge * scale) / 2);
     yR += rEdge * scale;
 
     for (let i = 0; i < rMidCount; i++) {
@@ -777,21 +879,16 @@ function draw() {
         // נקודה
         addDimDot(svg, xRightDim, yR + (rMidStep * scale));
 
-        // טקסט
-        svg.insertAdjacentHTML('beforeend', `<text 
-                                             x="${xRightDim + 20}"
-                                             y="${yR + (rMidStep * scale) / 2 + 7}"
-                                             dominant-baseline="middle"
-                                             transform="rotate(-90, ${xRightDim + 10}, ${yR + (rMidStep * scale) / 2})">
-                                             ${rMidStep.toFixed(0)}
-                                             </text>`);
+        // שימוש ב-createEditableDimension במקום insertAdjacentHTML רגיל
+        createEditableDimension(svg, xRightDim + 10, yR + (rMidStep * scale) / 2 + 7, rMidStep.toFixed(0), `rMid-${i}`, -90, xRightDim + 10, yR + (rMidStep * scale) / 2);
 
         yR += rMidStep * scale;
     }
 
     svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xRightDim}" y1="${yR + 2}" x2="${xRightDim}" y2="${padY + H}"></line>`);
     addDimDot(svg, xRightDim, padY + H);
-    svg.insertAdjacentHTML('beforeend', `<text x="${xRightDim + 20}" y="${yR + (padY + H - yR) / 2 + 7}" dominant-baseline="middle" transform="rotate(-90, ${xRightDim + 10}, ${yR + (padY + H - yR) / 2})">${rEdge}</text>`);
+    // שימוש ב-createEditableDimension במקום insertAdjacentHTML רגיל
+    createEditableDimension(svg, xRightDim + 10, yR + (padY + H - yR) / 2 + 7, rEdge, `rEdge-bottom`, -90, xRightDim + 10, yR + (padY + H - yR) / 2);
 
     const trueLeft = padX - 35;     // הקו הקיצוני בשמאל
     const trueRight = padX + W + 30; // הקו הקיצוני בימין
