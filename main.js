@@ -167,6 +167,11 @@ function addDimDot(svg, x, y, r = 2.2) {
 // Inserts a <g> element containing the <rect> and <text>, rotated around the specified coordinates.
 // Default rotation angle is 90 degrees.
 function addNoteRotated(svg, x, y, text, angle = 90) {
+    // קבלת מידות ה-SVG
+    const svgRect = svg.getBoundingClientRect();
+    const svgWidth = svg.viewBox.baseVal.width || svgRect.width;
+    const svgHeight = svg.viewBox.baseVal.height || svgRect.height;
+
     // מחשבים BBox זמני כדי להתאים את הריבוע
     const tempText = document.createElementNS("http://www.w3.org/2000/svg", "text");
     tempText.setAttribute("class", "note-text");
@@ -176,33 +181,69 @@ function addNoteRotated(svg, x, y, text, angle = 90) {
     tempText.setAttribute("dominant-baseline", "middle");
     tempText.textContent = text;
     svg.appendChild(tempText);
-
     const bbox = tempText.getBBox();
     svg.removeChild(tempText);
 
     const padding = 10;
-    const rectX = bbox.x - padding;
-    const rectY = bbox.y - padding;
+
+    // חישוב מידות הקופסה לאחר הסיבוב
+    const radians = angle * Math.PI / 180;
+    const cos = Math.abs(Math.cos(radians));
+    const sin = Math.abs(Math.sin(radians));
+
+    const rotatedWidth = (bbox.width + padding * 2) * cos + (bbox.height + padding * 2) * sin;
+    const rotatedHeight = (bbox.width + padding * 2) * sin + (bbox.height + padding * 2) * cos;
+
+    // בדיקת גבולות ותיקון המיקום
+    let adjustedX = x;
+    let adjustedY = y;
+
+    // בדיקת גבול שמאל
+    if (x - rotatedWidth / 2 < 0) {
+        adjustedX = rotatedWidth / 2;
+    }
+
+    // בדיקת גבול ימין
+    if (x + rotatedWidth / 2 > svgWidth) {
+        adjustedX = svgWidth - rotatedWidth / 2;
+    }
+
+    // בדיקת גבול עליון
+    if (y - rotatedHeight / 2 < 0) {
+        adjustedY = rotatedHeight / 2 + 20;
+    }
+
+    // בדיקת גבול תחתון
+    if (y + rotatedHeight / 2 > svgHeight) {
+        adjustedY = svgHeight - rotatedHeight / 2;
+    }
+
+    // חישוב מיקום הריבוע עם המיקום המתוקן
+    const rectX = bbox.x - padding + (adjustedX - x);
+    const rectY = bbox.y - padding + (adjustedY - y);
     const rectW = bbox.width + padding * 2;
     const rectH = bbox.height + padding * 2;
 
     svg.insertAdjacentHTML("beforeend", `
-    <g
-    transform="rotate(${angle}, ${x}, ${y})">
-    <rect class="note-box"
-    x="${rectX}" 
-    y="${rectY}"
-    width="${rectW}" height="${rectH}"></rect>
-    <text
-    class="note-text"
-    x="${x}" 
-    y="${y}"
-    text-anchor="middle"
-    dominant-baseline="middle">
-    ${text}
-    </text>
-    </g>
-  `);
+        <g transform="rotate(${angle}, ${adjustedX}, ${adjustedY})">
+            <rect class="note-box"
+                x="${rectX}" 
+                y="${rectY}"
+                width="${rectW}" 
+                height="${rectH}">
+            </rect>
+            <text class="note-text"
+                x="${adjustedX}" 
+                y="${adjustedY}"
+                text-anchor="middle"
+                dominant-baseline="middle">
+                ${text}
+            </text>
+        </g>
+    `);
+
+    // החזרת המיקום הסופי למקרה שנרצה לדעת איפה הקופסה בסופו של דבר
+    return { x: adjustedX, y: adjustedY };
 }
 
 // Validates that all required input fields are filled.
@@ -288,6 +329,7 @@ function searchUnit(unitNum) {
 
     // סוג חומר -> גוון + סוג פרופיל
     if (row['סוג החומר']) {
+
         const [color, type] = row['סוג החומר'].split('_');
         document.getElementById('profileColor').value = color || '';
 
@@ -695,100 +737,98 @@ function draw() {
     let frontDimAdded = false; // דגל גלובלי למניעת חזרות
 
     function addDrill(x, y) {
-        // קידוח רגיל
-        svg.insertAdjacentHTML(
-            'beforeend',
-            `<circle cx="${x}" 
-             cy="${y}" 
+        let drillPositions = [];
+
+        if (settings.hasDualDrill) {
+            const halfOffset = (settings.extraDrillOffset / 2) * scale; // חצי המרחק = 16 מ״מ
+            drillPositions = [y - halfOffset, y + halfOffset];
+        } else {
+            drillPositions = [y]; // קידוח רגיל
+        }
+
+        // ציור הקידוחים
+        drillPositions.forEach(posY => {
+            svg.insertAdjacentHTML(
+                'beforeend',
+                `<circle cx="${x}" 
+             cy="${posY}" 
              r="${drillR}" 
              fill="none" 
              stroke="#2c3e50" 
              stroke-width="1"/>`
-        );
-
-        // אם זה פרופיל ג'נסיס – מוסיפים עוד אחד מעל (בהיסט של 32 מ״מ)
-        if (settings.hasDualDrill) {
-            const newY = y - settings.extraDrillOffset * scale;
-            svg.insertAdjacentHTML(
-                'beforeend',
-                `<circle cx="${x}" 
-                 cy="${newY}" 
-                 r="${drillR}" 
-                 fill="none" 
-                 stroke="#2c3e50" 
-                 stroke-width="1"/>`
             );
+        });
 
-            if (!frontDimAdded) {
-                // --- קו מקווקוו מקורי ---
-                const lineYStart = newY;
-                const lineYEnd = newY - 30;
-                const lineX = (sideSelect === "left") ? padX : padX + W;
-                const verticalLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                verticalLine.setAttribute("x1", lineX);
-                verticalLine.setAttribute("y1", lineYStart);
-                verticalLine.setAttribute("x2", lineX);
-                verticalLine.setAttribute("y2", lineYEnd);
-                verticalLine.setAttribute("stroke", "#007acc");
-                verticalLine.setAttribute("stroke-width", "1");
-                verticalLine.setAttribute("stroke-dasharray", "4,2"); // קו מקווקוו
-                svg.appendChild(verticalLine);
+        // אם זה כפול – מוסיפים קווים ומידות (רק פעם אחת)
+        if (settings.hasDualDrill && !frontDimAdded) {
+            const newY = y - settings.extraDrillOffset * scale;
+            const lineYStart = newY;
+            const lineYEnd = newY - 30;
+            const lineX = (sideSelect === "left") ? padX : padX + W;
 
-                // קו מקביל נוסף לקו המקווקוו
-                let parallelX;
-                if (sideSelect === "left") {
-                    parallelX = lineX + frontDrillOffset / 2 - 1; // הזזה לכיוון הפנימי של הדלת
-                } else {
-                    parallelX = lineX - frontDrillOffset / 2 + 1; // הזזה לכיוון הפנימי של הדלת
-                }
+            // קו אנכי מקווקוו
+            const verticalLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            verticalLine.setAttribute("x1", lineX);
+            verticalLine.setAttribute("y1", lineYStart);
+            verticalLine.setAttribute("x2", lineX);
+            verticalLine.setAttribute("y2", lineYEnd);
+            verticalLine.setAttribute("stroke", "#007acc");
+            verticalLine.setAttribute("stroke-width", "1");
+            verticalLine.setAttribute("stroke-dasharray", "4,2");
+            svg.appendChild(verticalLine);
 
-                const parallelLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                parallelLine.setAttribute("x1", parallelX);
-                parallelLine.setAttribute("y1", lineYStart);
-                parallelLine.setAttribute("x2", parallelX);
-                parallelLine.setAttribute("y2", lineYEnd);
-                parallelLine.setAttribute("stroke", "#007acc");
-                parallelLine.setAttribute("stroke-width", "1");
-                parallelLine.setAttribute("stroke-dasharray", "4,2");
-                svg.appendChild(parallelLine);
+            // קו מקביל נוסף
+            const parallelX = sideSelect === "left"
+                ? lineX + frontDrillOffset / 2 - 1
+                : lineX - frontDrillOffset / 2 + 1;
 
-                // --- קו אופקי קצר לקידוח עם טקסט ---
-                const horizontalLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                horizontalLine.setAttribute("x1", lineX + 5);
-                horizontalLine.setAttribute("y1", lineYEnd);
-                horizontalLine.setAttribute("x2", x - 5);
-                horizontalLine.setAttribute("y2", lineYEnd);
-                horizontalLine.setAttribute("stroke", "#007acc");
-                horizontalLine.setAttribute("stroke-width", "1");
-                svg.appendChild(horizontalLine);
+            const parallelLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            parallelLine.setAttribute("x1", parallelX);
+            parallelLine.setAttribute("y1", lineYStart);
+            parallelLine.setAttribute("x2", parallelX);
+            parallelLine.setAttribute("y2", lineYEnd);
+            parallelLine.setAttribute("stroke", "#007acc");
+            parallelLine.setAttribute("stroke-width", "1");
+            parallelLine.setAttribute("stroke-dasharray", "4,2");
+            svg.appendChild(parallelLine);
 
-                // --- טקסט מידה מעל הקו ---
-                const dimText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                dimText.setAttribute("x", (lineX + x) / 2);
-                dimText.setAttribute("y", lineYEnd - 5);
-                dimText.setAttribute("text-anchor", "middle");
-                dimText.setAttribute("class", "dim-text");
-                dimText.textContent = settings.frontDrillOffset;
-                svg.appendChild(dimText);
+            // קו אופקי קצר
+            const horizontalLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            horizontalLine.setAttribute("x1", lineX + 5);
+            horizontalLine.setAttribute("y1", lineYEnd);
+            horizontalLine.setAttribute("x2", x - 5);
+            horizontalLine.setAttribute("y2", lineYEnd);
+            horizontalLine.setAttribute("stroke", "#007acc");
+            horizontalLine.setAttribute("stroke-width", "1");
+            svg.appendChild(horizontalLine);
 
-                const centerX = padX + W + 6; // מרכז רוחבי של החזית
-                const lines = [settings.description];
-                const fontSize = 10;
-                const lineHeight = fontSize + 2;
+            // טקסט מידה
+            const dimText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            dimText.setAttribute("x", (lineX + x) / 2);
+            dimText.setAttribute("y", lineYEnd - 5);
+            dimText.setAttribute("text-anchor", "middle");
+            dimText.setAttribute("class", "dim-text");
+            dimText.textContent = settings.frontDrillOffset;
+            svg.appendChild(dimText);
 
-                lines.forEach((line, i) => {
-                    const textLine = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                    textLine.setAttribute("x", centerX);
-                    textLine.setAttribute("y", padY + H + 20 + i * lineHeight); // מתחת לדלת
-                    textLine.setAttribute("text-anchor", "middle");             // ממרכז את השורה אופקית
-                    textLine.setAttribute("dominant-baseline", "middle");       // ממרכז את השורה אנכית
-                    textLine.setAttribute("font-size", fontSize);
-                    textLine.setAttribute("class", "dim-text");
-                    textLine.textContent = line;
-                    svg.appendChild(textLine);
-                });
-                frontDimAdded = true; // סמן שהקו נוסף
-            }
+            // טקסט תיאור מתחת לדלת
+            const centerX = padX + W + 6;
+            const fontSize = 10;
+            const lineHeight = fontSize + 2;
+
+            [settings.description].forEach((line, i) => {
+                const textLine = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                textLine.setAttribute("x", centerX);
+                textLine.setAttribute("y", padY + H + 20 + i * lineHeight);
+                textLine.setAttribute("text-anchor", "middle");
+                textLine.setAttribute("dominant-baseline", "middle");
+                textLine.setAttribute("font-size", fontSize);
+                textLine.setAttribute("class", "dim-text");
+                textLine.textContent = line;
+                svg.appendChild(textLine);
+            });
+
+            frontDimAdded = true;
         }
     }
 
@@ -897,17 +937,22 @@ function draw() {
     // שימוש ב-createEditableDimension במקום insertAdjacentHTML רגיל
     createEditableDimension(svg, xRightDim + 10, yR + (padY + H - yR) / 2 + 7, rEdge, `rEdge-bottom`, -90, xRightDim + 10, yR + (padY + H - yR) / 2);
 
-    const trueLeft = padX - 35;     // הקו הקיצוני בשמאל
+    const trueLeft = padX - 40;     // הקו הקיצוני בשמאל
     const trueRight = padX + W + 30; // הקו הקיצוני בימין
-    const noteHeight = padY + H / 2;
-    const noteOffset = 50;
+    const noteHeight = padY + H / 2; // גובה מרכז הדלת להוספת הערות
+    const noteOffset = 50; // הזחה מהקצה
 
     if (sideSelect === "right") {
         // מצב רגיל
         addNoteRotated(svg, trueRight + noteOffset, noteHeight, settings.rightNotes, 90);
+        if (profileSelect === "ג'נסיס") {
+            addNoteRotated(svg, trueLeft - noteOffset, noteHeight, settings.LeftNotes, -90);
+        }
     } else {
-        // מצב שמאל – מתחלף
         addNoteRotated(svg, trueLeft - noteOffset, noteHeight, settings.rightNotes, -90);
+        if (profileSelect === "ג'נסיס") {
+            addNoteRotated(svg, trueRight + noteOffset, noteHeight, settings.LeftNotes, 90);
+        }
     }
 
     // סיכום מידות
@@ -951,6 +996,25 @@ excelFile.addEventListener("change", function (e) {
 
         // range: 6 => להתחיל מהשורה 7 (B7) שבה יש כותרות
         excelRows = XLSX.utils.sheet_to_json(sheet, { range: 6 });
+
+        // המרה של GENESIS לפורמט MT59_ג'נסיס והעברת הקוד לעמודת מלואה
+        excelRows = excelRows.map(r => {
+            if (r['סוג החומר'] && String(r['סוג החומר']).toUpperCase().includes("GENESIS")) {
+                const parts = String(r['סוג החומר']).split('_');
+
+                // קוד זכוכית (כל מה אחרי _) אם קיים
+                const glassCode = parts.length > 1 ? parts[1] : null;
+
+                // סוג חומר בפורמט MT59_ג'נסיס
+                r['סוג החומר'] = "MT59_ג'נסיס";
+
+                // שמירת הקוד בעמודת מלואה
+                if (glassCode) {
+                    r['מלואה'] = glassCode;
+                }
+            }
+            return r;
+        });
 
         console.log("עמודות שהתקבלו:", Object.keys(excelRows[0]));
         console.log("דוגמה לשורה ראשונה:", excelRows[0]);

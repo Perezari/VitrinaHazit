@@ -35,7 +35,7 @@ const PROFILE_SETTINGS = {
         "defaultPrepFor": "צירים",
         "description": "פרופיל 424 עם גרונג",
         "rightNotes": "הכנה לצירים",
-        "LeftNotes": "הכנה לצירים"
+        "LeftNotes": ""
     },
     "דגם427": {
         "innerFrameStroke": "#2c3e50",
@@ -69,7 +69,7 @@ const PROFILE_SETTINGS = {
         "defaultPrepFor": "צירים",
         "description": "פרופיל קואדרו עם גרונג",
         "rightNotes": "הכנה לצירים",
-        "LeftNotes": "הכנה לצירים"
+        "LeftNotes": ""
     },
     "זירו": {
         "innerFrameStroke": "#2c3e50",
@@ -85,7 +85,7 @@ const PROFILE_SETTINGS = {
         "defaultPrepFor": "צירים",
         "description": "פרופיל זירו ללא גרונג",
         "rightNotes": "הכנה לצירים",
-        "LeftNotes": "הכנה לצירים"
+        "LeftNotes": ""
     },
     "ג'נסיס": {
         "innerFrameStroke": "#2c3e50",
@@ -103,7 +103,7 @@ const PROFILE_SETTINGS = {
         "defaultPrepFor": "צירים לדלת דקה",
         "description": "",
         "rightNotes": "הכנה לצירים - קוטר קידוח 2.5 מ\"מ",
-        "LeftNotes": ""
+        "LeftNotes": "שים לב - המידה היא עבור מרכז בין קידוחים"
     },
     "מאיה": {
         "innerFrameStroke": "#2c3e50",

@@ -141,9 +141,6 @@ function fixHebrewText(svgRoot) {
 function centerDimensionNumbers(svgRoot) {
     const numRegex = /^[\d\s\.\-+×xX*]+(?:mm|מ"מ|)$/;
 
-    // גודל האופסט מהקו (יכול להיות חיובי או שלילי)
-    const offset = 20; // ניתן לשנות את הערך לפי הצורך
-
     svgRoot.querySelectorAll('text').forEach(t => {
         const raw = t.textContent || '';
         const txt = raw.replace(/\s+/g, '');
@@ -176,9 +173,9 @@ function centerDimensionNumbers(svgRoot) {
                     }
                 }
             } else {
-                // טקסט אופקי רגיל: הזזה אנכית מהקו
+                // Text positioned normally (not rotated) Like: 42.5 of Genesis profile
                 const y = parseFloat(t.getAttribute('y') || '0');
-                t.setAttribute('y', y - offset - 5);
+                t.setAttribute('y', y);
             }
         }
     });
