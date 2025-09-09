@@ -78,13 +78,11 @@ function createEditableDimension(svg, x, y, value, id, rotation = 0, rotateX = n
     return text;
 }
 
-// פונקציה לעריכת מידה
 function editDimension(textElement, dimensionId) {
     const currentValue = editableDimensions[dimensionId];
     const rect = textElement.getBoundingClientRect();
     const svgRect = document.getElementById('svg').getBoundingClientRect();
 
-    // יצירת input זמני
     const input = document.createElement("input");
     input.type = "text";
     input.value = currentValue;
@@ -101,30 +99,31 @@ function editDimension(textElement, dimensionId) {
     input.style.zIndex = "1000";
     input.style.direction = "ltr";
 
-    // הוספת ה-input למכל ה-SVG
     const svgContainer = document.getElementById('svg').parentElement;
     svgContainer.appendChild(input);
 
-    // פוקוס וסלקט כל הטקסט
     input.focus();
     input.select();
 
-    // פונקציה לשמירת הערך
+    function removeInput() {
+        if (input && input.parentNode) {
+            input.parentNode.removeChild(input);
+        }
+    }
+
     function saveValue() {
         const newValue = input.value.trim();
         if (newValue && !isNaN(newValue)) {
             editableDimensions[dimensionId] = newValue;
             textElement.textContent = newValue;
         }
-        svgContainer.removeChild(input);
+        removeInput();
     }
 
-    // פונקציה לביטול העריכה
     function cancelEdit() {
-        svgContainer.removeChild(input);
+        removeInput();
     }
 
-    // מאזינים לאירועים
     input.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
             saveValue();
@@ -133,8 +132,13 @@ function editDimension(textElement, dimensionId) {
         }
     });
 
+    // כאן התיקון — דיליי קטן כדי שה־keydown יספיק לרוץ קודם
     input.addEventListener("blur", function () {
-        saveValue();
+        setTimeout(() => {
+            if (input && input.parentNode) {
+                saveValue();
+            }
+        }, 0);
     });
 }
 
