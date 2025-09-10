@@ -43,6 +43,7 @@ p.subtitle {
   border: 1px dashed #d1e2f0;
   height: auto;
   max-height: none;   /* מבטל את ההגבלה */
+  max-width: 100%;
 }
 
     .card.drawing-card {
