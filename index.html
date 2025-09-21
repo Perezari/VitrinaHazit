@@ -51,20 +51,28 @@
             </div>
             <div class="row">
                 <div>
-                    <label for="rEdge">מיקום ציר תחתון ועליון</label>
-                    <input id="rEdge" type="number" value="100" min="1">
+                    <label for="rEdgeBottom">מיקום ציר תחתון</label>
+                    <input id="rEdgeBottom" type="number" value="100" min="1">
                 </div>
+                <div>
+                    <label for="rEdgeTop">מיקום ציר עליון</label>
+                    <input id="rEdgeTop" type="number" value="100" min="1">
+                </div>
+            </div>
+            <div class="row">
                 <div>
                     <label for="rMidCount">כמות צירים דרושה</label>
                     <input id="rMidCount" type="number" value="4" min="1">
                 </div>
+                <div>
+                    <label for="sideSelect">כיוון פתיחת דלת ויטרינה</label>
+                    <select id="sideSelect">
+                        <option value="right" selected>ימין</option>
+                        <option value="left">שמאל</option>
+                        <option value="both">שתי דלתות</option>
+                    </select>
+                </div>
             </div>
-            <label for="sideSelect">כיוון פתיחת דלת ויטרינה</label>
-            <select id="sideSelect">
-                <option value="right" selected>ימין</option>
-                <option value="left">שמאל</option>
-                <option value="both">שתי דלתות</option>
-            </select>
             <h2>פרטים 📝</h2>
             <div>
                 <label for="Sapak">ספק הויטרינה</label>
@@ -127,9 +135,9 @@
                 </button>
             </div>
             <!--<div id="readout" class="readout-container" style="display:none;">
-                <h3>סיכום מידות 📏</h3>
-                <div id="readout-content"></div>
-            </div>-->
+        <h3>סיכום מידות 📏</h3>
+        <div id="readout-content"></div>
+    </div>-->
         </div>
         <div class="card drawing-card">
             <svg id="svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMin slice"></svg>
