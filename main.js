@@ -426,19 +426,15 @@ function searchUnit(unitNum) {
     // אם יש גם דלת ימין וגם דלת שמאל - מציבים "שתי דלתות"
     if (rightDoor && leftDoor) {
         sideSelect.value = 'both';
-
         // גובה יכול להיות זהה – או שאפשר לשמור גם שניים אם שונה
         cabH.value = rightDoor['אורך'] || leftDoor['אורך'] || '';
-
         // אם רוצים עדיין להמשיך לעבוד עם draw() כמו פעם,
         // אפשר לשמור גם ערך מחושב כללי, למשל:
         frontW.value = (Number(rightDoor['רוחב']) || 0) + (Number(leftDoor['רוחב']) || 0);
-
         // שמירה במשתנים
         leftDoorWidth = Number(leftDoor['רוחב']) || 0;
         rightDoorWidth = Number(rightDoor['רוחב']) || 0;
         doorHeight = Number(rightDoor['אורך']) || Number(leftDoor['אורך']) || 0;
-
         // ונבחר מה לשים בחומרים – למשל לפי דלת ימין
         row = rightDoor;
     } else if (rightDoor) {
@@ -467,27 +463,69 @@ function searchUnit(unitNum) {
     frontW.value = row['רוחב'] || '';
     cabH.value = row['אורך'] || '';
 
-    // סוג חומר -> גוון + סוג פרופיל
+    // לוגיקה חדשה לזיהוי פרופיל וצבע
     if (row['סוג החומר']) {
-        const [color, type] = row['סוג החומר'].split('_');
-        document.getElementById('profileColor').value = color || '';
+        const materialType = String(row['סוג החומר']).trim();
 
-        let foundSupplier = null;
-        for (const supplier in ProfileConfig.SUPPLIERS_PROFILES_MAP) {
-            if (ProfileConfig.SUPPLIERS_PROFILES_MAP[supplier].includes(type)) {
-                foundSupplier = supplier;
+        // חיפוש הפרופיל בהגדרות
+        let foundProfileType = null;
+        let remainingText = materialType;
+
+        // חיפוש בכל סוגי הפרופילים בהגדרות
+        for (const profileType in ProfileConfig.PROFILE_SETTINGS) {
+            if (materialType.includes(profileType)) {
+                foundProfileType = profileType;
+                // הסרת סוג הפרופיל מהטקסט כדי לקבל את הצבע
+                remainingText = materialType.replace(profileType, '').replace(/^_+|_+$/g, ''); // הסרת _ בהתחלה וסוף
                 break;
             }
         }
 
-        if (foundSupplier) {
-            sapakSelect.value = foundSupplier;
-            fillProfileOptions();
-        }
+        if (foundProfileType) {
+            // הגדרת הצבע (מה שנשאר אחרי הסרת הפרופיל)
+            document.getElementById('profileColor').value = remainingText || '';
 
-        profileSelect.value = type || '';
+            // מציאת הספק המתאים לפרופיל
+            let foundSupplier = null;
+            for (const supplier in ProfileConfig.SUPPLIERS_PROFILES_MAP) {
+                if (ProfileConfig.SUPPLIERS_PROFILES_MAP[supplier].includes(foundProfileType)) {
+                    foundSupplier = supplier;
+                    break;
+                }
+            }
+
+            if (foundSupplier) {
+                sapakSelect.value = foundSupplier;
+                fillProfileOptions();
+            }
+
+            profileSelect.value = foundProfileType;
+        } else {
+            // אם לא נמצא פרופיל בהגדרות, נשתמש בלוגיקה הישנה כגיבוי
+            const parts = materialType.split('_');
+            if (parts.length >= 2) {
+                document.getElementById('profileColor').value = parts[0] || '';
+                const profileType = parts[1];
+
+                let foundSupplier = null;
+                for (const supplier in ProfileConfig.SUPPLIERS_PROFILES_MAP) {
+                    if (ProfileConfig.SUPPLIERS_PROFILES_MAP[supplier].includes(profileType)) {
+                        foundSupplier = supplier;
+                        break;
+                    }
+                }
+
+                if (foundSupplier) {
+                    sapakSelect.value = foundSupplier;
+                    fillProfileOptions();
+                }
+
+                profileSelect.value = profileType || '';
+            }
+        }
     }
 
+    // עדכון דגם הזכוכית
     if (row['מלואה']) {
         document.getElementById('glassModel').value = row['מלואה'];
     }
@@ -765,7 +803,8 @@ function drawSingleDoor(svg, padX, padY, W, H, side, settings, scale, frontW, ca
     const drillOffsetRight = 9.5;
 
     let frontDrillOffset = settings.frontDrillOffset;
-    if (profileType === "ג'נסיס") {
+
+    if (settings.hasDualDrill === true) {
         frontDrillOffset = frontDrillOffset * scale;
     }
 
@@ -1088,23 +1127,41 @@ excelFile.addEventListener("change", function (e) {
 
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-        // range: 6 => להתחיל מהשורה 7 (B7) שבה יש כותרות
-        excelRows = XLSX.utils.sheet_to_json(sheet, { range: 6 });
+        // קודם נקרא את הכותרות (שורה 6 = index 6 -> השורה ה-7 בפועל)
+        const headers = XLSX.utils.sheet_to_json(sheet, {
+            range: 6,
+            header: 1
+        })[0]; // השורה הראשונה בטווח
+
+        // עכשיו נקרא את השורות החל מהשורה שאחריה (range: 7)
+        // ונכריח להשתמש בכותרות שקיבלנו
+        excelRows = XLSX.utils.sheet_to_json(sheet, {
+            range: 7,        // מתחיל מהשורה שאחרי הכותרות
+            header: headers, // שימוש בכותרות ידניות
+            defval: "",      // לא לאבד תאים ריקים
+            raw: true,
+            blankrows: true
+        });
 
         // המרה של GENESIS לפורמט MT59_ג'נסיס והעברת הקוד לעמודת מלואה
         excelRows = excelRows.map(r => {
             if (r['סוג החומר'] && String(r['סוג החומר']).toUpperCase().includes("GENESIS")) {
-                const parts = String(r['סוג החומר']).split('_');
+                const materialType = String(r['סוג החומר']);
+                const genesisIndex = materialType.toUpperCase().indexOf("GENESIS");
 
-                // קוד זכוכית (כל מה אחרי _) אם קיים
-                const glassCode = parts.length > 1 ? parts[1] : null;
+                // כל מה שנשאר אחרי GENESIS
+                let remainder = materialType.substring(genesisIndex + "GENESIS".length);
 
-                // סוג חומר בפורמט MT59_ג'נסיס
-                r['סוג החומר'] = "MT59_ג'נסיס";
+                // אם מתחיל ב-_ אז מסירים את ה-_ הראשון בלבד
+                if (remainder.startsWith('_')) {
+                    remainder = remainder.substring(1);
+                }
 
-                // שמירת הקוד בעמודת מלואה
-                if (glassCode) {
-                    r['מלואה'] = glassCode;
+                r['סוג החומר'] = "GENESIS_MT59";
+
+                // שמירת העודף בעמודת מלואה אם קיים
+                if (remainder) {
+                    r['מלואה'] = remainder;
                 }
             }
             return r;
