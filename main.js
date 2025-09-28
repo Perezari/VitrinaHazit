@@ -1187,6 +1187,13 @@ excelFile.addEventListener("change", function (e) {
         sideSelect.disabled = true;
         sideSelect.title = "שדה זה נטען אוטומטית מהקובץ ולא ניתן לשינוי";
 
+        planNum.readOnly = true;
+        planNum.disabled = true;
+        planNum.style.backgroundColor = "#f8f9fb";
+        planNum.style.color = '#888888';
+        planNum.style.userSelect = 'none';
+        planNum.title = "שדה זה נטען אוטומטית מהקובץ ולא ניתן לשינוי";
+
         glassModel.readOnly = true;
         glassModel.disabled = true;
         glassModel.style.backgroundColor = "#f8f9fb";
