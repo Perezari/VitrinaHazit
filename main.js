@@ -9,7 +9,7 @@ const DIMENSION_LIMITS = {
         name: "רוחב חזית"
     },
     cabH: {
-        min: 400,
+        min: 300,
         max: 2500,
         name: "גובה חזית"
     },
