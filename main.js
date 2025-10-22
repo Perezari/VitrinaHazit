@@ -10,7 +10,7 @@ const DIMENSION_LIMITS = {
     },
     cabH: {
         min: 300,
-        max: 2500,
+        max: 2600,
         name: "גובה חזית"
     },
     rEdgeTop: {
