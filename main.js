@@ -1152,23 +1152,38 @@ excelFile.addEventListener("change", function (e) {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
 
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        workbook.SheetNames.forEach((sheetName) => {
+            const sheet = workbook.Sheets[sheetName];
 
-        // קודם נקרא את הכותרות (שורה 6 = index 6 -> השורה ה-7 בפועל)
-        const headers = XLSX.utils.sheet_to_json(sheet, {
-            range: 6,
-            header: 1
-        })[0]; // השורה הראשונה בטווח
+            // קריאת הכותרות (שורה 6 = השורה ה-7 בפועל)
+            const headers = XLSX.utils.sheet_to_json(sheet, {
+                range: 6,
+                header: 1
+            })[0];
 
-        // עכשיו נקרא את השורות החל מהשורה שאחריה (range: 7)
-        // ונכריח להשתמש בכותרות שקיבלנו
-        excelRows = XLSX.utils.sheet_to_json(sheet, {
-            range: 7,        // מתחיל מהשורה שאחרי הכותרות
-            header: headers, // שימוש בכותרות ידניות
-            defval: "",      // לא לאבד תאים ריקים
-            raw: true,
-            blankrows: true
+            if (!headers) return; // אם הגיליון ריק, דלג
+
+            // קריאת הנתונים מהשורה הבאה
+            const rows = XLSX.utils.sheet_to_json(sheet, {
+                range: 7,
+                header: headers,
+                defval: "",
+                raw: true,
+                blankrows: true
+            });
+
+            // הוספת שדה עזר עם שם הגיליון (לא חובה, אבל עוזר)
+            rows.forEach(r => r.__SheetName = sheetName);
+
+            // ממזגים את כל הגיליונות למערך אחד
+            excelRows.push(...rows);
         });
+
+        // ✅ אם לא נמצאו נתונים כלל
+        if (excelRows.length === 0) {
+            alert("לא נמצאו נתונים באף גיליון בקובץ.");
+            return;
+        }
 
         // המרה של GENESIS לפורמט MT59_ג'נסיס והעברת הקוד לעמודת מלואה
         excelRows = excelRows.map(r => {
@@ -1176,24 +1191,17 @@ excelFile.addEventListener("change", function (e) {
                 const materialType = String(r['סוג החומר']);
                 const genesisIndex = materialType.toUpperCase().indexOf("GENESIS");
 
-                // כל מה שנשאר אחרי GENESIS
                 let remainder = materialType.substring(genesisIndex + "GENESIS".length);
-
-                // אם מתחיל ב-_ אז מסירים את ה-_ הראשון בלבד
-                if (remainder.startsWith('_')) {
-                    remainder = remainder.substring(1);
-                }
+                if (remainder.startsWith('_')) remainder = remainder.substring(1);
 
                 r['סוג החומר'] = "GENESIS_MT59";
-
-                // שמירת העודף בעמודת מלואה אם קיים
-                if (remainder) {
-                    r['מלואה'] = remainder;
-                }
+                if (remainder) r['מלואה'] = remainder;
             }
             return r;
         });
 
+        console.log("סך כל הרשומות שהתקבלו:", excelRows.length);
+        console.log("גיליונות בקובץ:", workbook.SheetNames);
         console.log("עמודות שהתקבלו:", Object.keys(excelRows[0]));
         console.log("דוגמה לשורה ראשונה:", excelRows[0]);
 
@@ -1223,12 +1231,10 @@ excelFile.addEventListener("change", function (e) {
             // איפוס השרטוט
             const svg = document.getElementById('svg');
             const overlay = document.querySelector('.svg-overlay');
-            if (svg) svg.innerHTML = "";   // מוחק את תוכן ה־SVG
+            if (svg) svg.innerHTML = "";
             if (overlay) overlay.style.display = 'none';
-
             return;
         } else {
-            // הפעלה מחדש של כפתורים אם הכל תקין
             batchSaveBtn.disabled = false;
             batchSaveBtn.style.backgroundColor = "";
             batchSaveBtn.style.cursor = "pointer";
@@ -1247,15 +1253,8 @@ excelFile.addEventListener("change", function (e) {
 
             if (!candidates.length) return null;
 
-            const rightDoor = candidates.find(r => {
-                const partName = (r['שם החלק'] || "").toLowerCase();
-                return partName.includes("ימין");
-            });
-
-            const leftDoor = candidates.find(r => {
-                const partName = (r['שם החלק'] || "").toLowerCase();
-                return partName.includes("שמאל");
-            });
+            const rightDoor = candidates.find(r => (r['שם החלק'] || "").toLowerCase().includes("ימין"));
+            const leftDoor = candidates.find(r => (r['שם החלק'] || "").toLowerCase().includes("שמאל"));
 
             let row = rightDoor || leftDoor;
             if (!row) return null;
@@ -1268,7 +1267,6 @@ excelFile.addEventListener("change", function (e) {
             let materialType = row['סוג החומר'] ? String(row['סוג החומר']).trim() : '';
             let profileColor = '';
 
-            // חילוץ גוון פרופיל
             let foundProfileType = null;
             for (const profileType in ProfileConfig.PROFILE_SETTINGS) {
                 if (materialType.includes(profileType)) {
@@ -1304,12 +1302,8 @@ excelFile.addEventListener("change", function (e) {
         allUnitsWithDoors.forEach(unitNum => {
             const params = getUnitParams(unitNum);
             if (!params) return;
-
             const key = `${params.height}|${params.width}|${params.profile}|${params.color}|${params.glass}|${params.partName}`;
-
-            if (!unitGroups[key]) {
-                unitGroups[key] = [];
-            }
+            if (!unitGroups[key]) unitGroups[key] = [];
             unitGroups[key].push(unitNum);
         });
 
