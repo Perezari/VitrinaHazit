@@ -159,7 +159,33 @@ function editDimension(textElement, dimensionId) {
         const newValue = input.value.trim();
         if (newValue && !isNaN(newValue)) {
             editableDimensions[dimensionId] = newValue;
-            textElement.textContent = newValue;
+            
+            let shouldRedraw = false;
+            if (dimensionId.includes("rEdgeTop")) {
+                const el = document.getElementById('rEdgeTop');
+                if(el) { el.value = newValue; }
+                shouldRedraw = true;
+            } else if (dimensionId.includes("rEdgeBottom")) {
+                const el = document.getElementById('rEdgeBottom');
+                if(el) { el.value = newValue; }
+                shouldRedraw = true;
+            } else if (dimensionId.includes("frontW") && !dimensionId.includes("_")) {
+                const el = document.getElementById('frontW');
+                if(el) { el.value = newValue; }
+                shouldRedraw = true;
+            } else if (dimensionId.includes("cabH")) {
+                const el = document.getElementById('cabH');
+                if(el) { el.value = newValue; }
+                shouldRedraw = true;
+            } else if (dimensionId.includes("rMid")) {
+                shouldRedraw = true;
+            }
+
+            if (shouldRedraw) {
+                draw();
+            } else {
+                textElement.textContent = newValue;
+            }
         }
         removeInput();
     }
@@ -169,20 +195,12 @@ function editDimension(textElement, dimensionId) {
     }
 
     input.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") {
-            saveValue();
-        } else if (e.key === "Escape") {
-            cancelEdit();
-        }
+        if (e.key === "Enter") saveValue();
+        else if (e.key === "Escape") cancelEdit();
     });
 
-    // כאן התיקון — דיליי קטן כדי שה־keydown יספיק לרוץ קודם
     input.addEventListener("blur", function () {
-        setTimeout(() => {
-            if (input && input.parentNode) {
-                saveValue();
-            }
-        }, 0);
+        setTimeout(() => { if (input && input.parentNode) saveValue(); }, 0);
     });
 }
 
@@ -783,58 +801,68 @@ async function downloadPdf() {
 }
 
 // Draws a vertical drill chain dimension on the specified side of the door.
-function drawDrillChain(svg, padX, padY, W, H, rEdgeTop, rEdgeBottom, rMidCount, rMidStep, scale, side) {
-
-    // קובע מיקום של השרשרת (ימין או שמאל)
+function drawDrillChain(svg, padX, padY, W, H, rEdgeTop, rEdgeBottom, totalSpaces, rMidSteps, scale, side) {
     let xRightDim = side === "right" ? padX + W + 30 : padX - 40;
+    let cabH = H / scale;
+    
+    // חישוב מיקומי כל הצירים (מ"מ מלמעלה למטה)
+    let hinges = [rEdgeTop];
+    let midHinges = [];
+    let currentY = cabH - rEdgeBottom;
+    
+    // בניית צירי האמצע מלמטה למעלה
+    for (let i = 0; i < rMidSteps.length; i++) {
+        currentY -= rMidSteps[i];
+        midHinges.push(currentY);
+    }
+    midHinges.reverse(); // הופכים כדי שהמערך יהיה מסודר מלמעלה למטה
+    hinges = hinges.concat(midHinges);
+    hinges.push(cabH - rEdgeBottom);
 
-    let yR = padY;
-    addDimDot(svg, xRightDim, yR);
+    let currentPixelY = padY;
+    addDimDot(svg, xRightDim, currentPixelY);
 
-    // מידה עליונה 
-    svg.insertAdjacentHTML('beforeend', `<line class="dim" 
-    x1="${xRightDim}" y1="${yR + 2}" 
-    x2="${xRightDim}" y2="${yR + rEdgeTop * scale}"></line>`);
-    addDimDot(svg, xRightDim, yR + (rEdgeTop * scale));
-    createEditableDimension(svg, xRightDim + 10, yR + (rEdgeTop * scale) / 2 + 7, rEdgeTop, `rEdgeTop-${side}`, -90, xRightDim + 10, yR + (rEdgeTop * scale) / 2);
+    // 1. מידה עליונה
+    let stepPixels = rEdgeTop * scale;
+    svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xRightDim}" y1="${currentPixelY + 2}" x2="${xRightDim}" y2="${currentPixelY + stepPixels}"></line>`);
+    currentPixelY += stepPixels;
+    addDimDot(svg, xRightDim, currentPixelY);
+    createEditableDimension(svg, xRightDim + 15, currentPixelY - stepPixels / 2, rEdgeTop, `rEdgeTop-${side}`, -90, xRightDim + 15, currentPixelY - stepPixels / 2);
 
-    yR += rEdgeTop * scale;
-
-    // מידות ביניים (rMidStep)
-    for (let i = 0; i < rMidCount; i++) {
-        if (i === 0) {
-            yR += rMidStep * scale;
-            addDimDot(svg, xRightDim, yR);
-            continue;
-        }
-
-        svg.insertAdjacentHTML('beforeend', `<line class="dim" 
-            x1="${xRightDim}" y1="${yR + 2}" 
-            x2="${xRightDim}" y2="${yR + rMidStep * scale}"></line>`);
-        addDimDot(svg, xRightDim, yR + (rMidStep * scale));
-        createEditableDimension(svg, xRightDim + 10, yR + (rMidStep * scale) / 2 + 7, rMidStep.toFixed(0), `rMid-${side}-${i}`, -90, xRightDim + 10, yR + (rMidStep * scale) / 2);
-
-        yR += rMidStep * scale;
+    // 2. מרווח עודף - קו בלבד ללא טקסט עריך!
+    let leftoverMm = hinges[1] - hinges[0];
+    let leftoverPixels = leftoverMm * scale;
+    if (leftoverPixels > 0) {
+        svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xRightDim}" y1="${currentPixelY + 2}" x2="${xRightDim}" y2="${currentPixelY + leftoverPixels}"></line>`);
+        currentPixelY += leftoverPixels;
+        addDimDot(svg, xRightDim, currentPixelY);
     }
 
-    // מידה תחתונה 
-    svg.insertAdjacentHTML('beforeend', `<line class="dim" 
-    x1="${xRightDim}" y1="${yR + 2}" 
-    x2="${xRightDim}" y2="${padY + H}"></line>`);
+    // 3. מרווחי אמצע (ניתנים לעריכה)
+    for (let i = 1; i < hinges.length - 1; i++) {
+        let gapMm = hinges[i+1] - hinges[i];
+        let gapPixels = gapMm * scale;
+        let midIndex = (hinges.length - 2) - i; // התאמה לאינדקס מערך rMidSteps
+
+        svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xRightDim}" y1="${currentPixelY + 2}" x2="${xRightDim}" y2="${currentPixelY + gapPixels}"></line>`);
+        currentPixelY += gapPixels;
+        addDimDot(svg, xRightDim, currentPixelY);
+        
+        createEditableDimension(svg, xRightDim + 15, currentPixelY - gapPixels / 2, Math.round(gapMm), `rMid-${side}-${midIndex}`, -90, xRightDim + 15, currentPixelY - gapPixels / 2);
+    }
+
+    // 4. מידה תחתונה
+    svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xRightDim}" y1="${currentPixelY + 2}" x2="${xRightDim}" y2="${padY + H}"></line>`);
     addDimDot(svg, xRightDim, padY + H);
-    createEditableDimension(svg, xRightDim + 10, yR + (padY + H - yR) / 2 + 7, rEdgeBottom, `rEdgeBottom-${side}`, -90, xRightDim + 10, yR + (padY + H - yR) / 2);
+    createEditableDimension(svg, xRightDim + 15, (currentPixelY + padY + H) / 2, rEdgeBottom, `rEdgeBottom-${side}`, -90, xRightDim + 15, (currentPixelY + padY + H) / 2);
 }
 
 // Draws a single door with specified parameters and settings.
-function drawSingleDoor(svg, padX, padY, W, H, side, settings, scale, frontW, cabH, rEdgeTop, rEdgeBottom, rMidCount, rMidStep, profileType, doorIndex = 0) {
+function drawSingleDoor(svg, padX, padY, W, H, side, settings, scale, frontW, cabH, rEdgeTop, rEdgeBottom, totalSpaces, rMidSteps, profileType, doorIndex = 0) {
     const drillR = 0.5;
     const drillOffsetRight = 9.5;
-
-    let frontDrillOffset = settings.frontDrillOffset;
-
-    if (settings.hasDualDrill === true) {
-        frontDrillOffset = frontDrillOffset * scale;
-    }
+    
+    let frontDrillOffset = settings.hasDualDrill ? settings.frontDrillOffset * scale : settings.frontDrillOffset;
 
     // חישוב מיקום וגודל פנימי
     const innerX = padX + settings.padSides * scale;
@@ -843,24 +871,14 @@ function drawSingleDoor(svg, padX, padY, W, H, side, settings, scale, frontW, ca
     const innerH = H - 2 * settings.padTopBot * scale;
 
     // מסגרת חיצונית
-    svg.insertAdjacentHTML('beforeend',
-        `<rect x="${padX}" 
-         y="${padY}"
-         width="${W}"
-         height="${H}"
-         fill="${settings.outerFrameFill}"
-         stroke="${settings.outerFrameStroke}"
-         stroke-width="${settings.outerFrameStrokeWidth}"/>`);
-
+    svg.insertAdjacentHTML('beforeend', 
+        `<rect x="${padX}" y="${padY}" width="${W}" height="${H}" fill="${settings.outerFrameFill}" stroke="${settings.outerFrameStroke}" stroke-width="${settings.outerFrameStrokeWidth}"/>`
+    );
+    
     // מסגרת פנימית
-    svg.insertAdjacentHTML('beforeend',
-        `<rect x="${innerX}"
-         y="${innerY}"
-         width="${innerWW}"
-         height="${innerH}"
-         fill="${settings.innerFrameFill}"
-         stroke="${settings.innerFrameStroke}"
-         stroke-width="${settings.innerFrameStrokeWidth}"/>`);
+    svg.insertAdjacentHTML('beforeend', 
+        `<rect x="${innerX}" y="${innerY}" width="${innerWW}" height="${innerH}" fill="${settings.innerFrameFill}" stroke="${settings.innerFrameStroke}" stroke-width="${settings.innerFrameStrokeWidth}"/>`
+    );
 
     // קווי גרונג או רגילים
     if (settings.hasGerong) {
@@ -868,36 +886,45 @@ function drawSingleDoor(svg, padX, padY, W, H, side, settings, scale, frontW, ca
             `<line x1="${padX}" y1="${padY}" x2="${innerX}" y2="${innerY}" stroke="#2c3e50" stroke-width="0.5"/>
              <line x1="${padX + W}" y1="${padY}" x2="${innerX + innerWW}" y2="${innerY}" stroke="#2c3e50" stroke-width="0.5"/>
              <line x1="${padX}" y1="${padY + H}" x2="${innerX}" y2="${innerY + innerH}" stroke="#2c3e50" stroke-width="0.5"/>
-             <line x1="${padX + W}" y1="${padY + H}" x2="${innerX + innerWW}" y2="${innerY + innerH}" stroke="#2c3e50" stroke-width="0.5"/>`);
+             <line x1="${padX + W}" y1="${padY + H}" x2="${innerX + innerWW}" y2="${innerY + innerH}" stroke="#2c3e50" stroke-width="0.5"/>`
+        );
     } else {
         svg.insertAdjacentHTML('beforeend',
             `<line x1="${innerX - settings.padSides * scale}" y1="${innerY}" x2="${innerX + innerWW + settings.padSides * scale}" y2="${innerY}" stroke="#2c3e50" stroke-width="0.5"/>
              <line x1="${innerX - settings.padSides * scale}" y1="${innerY + innerH}" x2="${innerX + innerWW + settings.padSides * scale}" y2="${innerY + innerH}" stroke="#2c3e50" stroke-width="0.5"/>
              <line x1="${innerX}" y1="${innerY}" x2="${innerX}" y2="${innerY + innerH}" stroke="#2c3e50" stroke-width="0.5"/>
-             <line x1="${innerX + innerWW}" y1="${innerY}" x2="${innerX + innerWW}" y2="${innerY + innerH}" stroke="#2c3e50" stroke-width="0.5"/>`);
+             <line x1="${innerX + innerWW}" y1="${innerY}" x2="${innerX + innerWW}" y2="${innerY + innerH}" stroke="#2c3e50" stroke-width="0.5"/>`
+        );
     }
 
-    // קידוחים
-    let yDrill = padY + rEdgeTop * scale;
+    // מיקום הקידוח בציר X
     let xRightDrill = side === "left" ? padX + drillOffsetRight - frontDrillOffset : padX + W - drillOffsetRight + frontDrillOffset;
 
+    // חישוב מיקומי הצירים (במ"מ) - יצירת המערך מלמטה למעלה כדי לשמור על קצוות קבועים
+    let hinges = [rEdgeTop];
+    let midHinges = [];
+    let currentY = cabH - rEdgeBottom;
+    
+    for (let i = 0; i < rMidSteps.length; i++) {
+        currentY -= rMidSteps[i];
+        midHinges.push(currentY);
+    }
+    
+    midHinges.reverse(); // הופכים כדי לקבל סדר מלמעלה למטה
+    hinges = hinges.concat(midHinges);
+    hinges.push(cabH - rEdgeBottom);
+
     let frontDimAdded = false;
-
+    
+    // פונקציה פנימית להוספת הקידוחים עצמם
     function addDrill(x, y) {
-        let drillPositions = [];
-        if (settings.hasDualDrill) {
-            const halfOffset = (settings.extraDrillOffset / 2) * scale;
-            drillPositions = [y - halfOffset, y + halfOffset];
-        } else {
-            drillPositions = [y];
-        }
-
+        let drillPositions = settings.hasDualDrill ? [y - (settings.extraDrillOffset / 2) * scale, y + (settings.extraDrillOffset / 2) * scale] : [y];
+        
         drillPositions.forEach(posY => {
-            svg.insertAdjacentHTML('beforeend',
-                `<circle cx="${x}" cy="${posY}" r="${drillR}" fill="none" stroke="#2c3e50" stroke-width="1"/>`);
+            svg.insertAdjacentHTML('beforeend', `<circle cx="${x}" cy="${posY}" r="${drillR}" fill="none" stroke="#2c3e50" stroke-width="1"/>`);
         });
 
-        // הוספת קווים ומידות לקידוח כפול
+        // הוספת קווים ומידות לקידוח כפול (אם קיים ולא נוסף כבר)
         if (settings.hasDualDrill && !frontDimAdded) {
             const newY = y - settings.extraDrillOffset * scale;
             const lineYStart = newY;
@@ -905,68 +932,84 @@ function drawSingleDoor(svg, padX, padY, W, H, side, settings, scale, frontW, ca
             const lineX = side === "left" ? padX : padX + W;
 
             const verticalLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            verticalLine.setAttribute("x1", lineX);
-            verticalLine.setAttribute("y1", lineYStart);
-            verticalLine.setAttribute("x2", lineX);
-            verticalLine.setAttribute("y2", lineYEnd);
-            verticalLine.setAttribute("stroke", "#007acc");
-            verticalLine.setAttribute("stroke-width", "1");
+            verticalLine.setAttribute("x1", lineX); 
+            verticalLine.setAttribute("y1", lineYStart); 
+            verticalLine.setAttribute("x2", lineX); 
+            verticalLine.setAttribute("y2", lineYEnd); 
+            verticalLine.setAttribute("stroke", "#007acc"); 
+            verticalLine.setAttribute("stroke-width", "1"); 
             verticalLine.setAttribute("stroke-dasharray", "4,2");
             svg.appendChild(verticalLine);
 
             const parallelX = side === "left" ? lineX + frontDrillOffset / 2 - 1 : lineX - frontDrillOffset / 2 + 1;
             const parallelLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            parallelLine.setAttribute("x1", parallelX);
-            parallelLine.setAttribute("y1", lineYStart);
-            parallelLine.setAttribute("x2", parallelX);
-            parallelLine.setAttribute("y2", lineYEnd);
-            parallelLine.setAttribute("stroke", "#007acc");
-            parallelLine.setAttribute("stroke-width", "1");
+            parallelLine.setAttribute("x1", parallelX); 
+            parallelLine.setAttribute("y1", lineYStart); 
+            parallelLine.setAttribute("x2", parallelX); 
+            parallelLine.setAttribute("y2", lineYEnd); 
+            parallelLine.setAttribute("stroke", "#007acc"); 
+            parallelLine.setAttribute("stroke-width", "1"); 
             parallelLine.setAttribute("stroke-dasharray", "4,2");
             svg.appendChild(parallelLine);
 
             const horizontalLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            horizontalLine.setAttribute("x1", lineX + 5);
-            horizontalLine.setAttribute("y1", lineYEnd);
-            horizontalLine.setAttribute("x2", x - 5);
-            horizontalLine.setAttribute("y2", lineYEnd);
-            horizontalLine.setAttribute("stroke", "#007acc");
+            horizontalLine.setAttribute("x1", lineX + 5); 
+            horizontalLine.setAttribute("y1", lineYEnd); 
+            horizontalLine.setAttribute("x2", x - 5); 
+            horizontalLine.setAttribute("y2", lineYEnd); 
+            horizontalLine.setAttribute("stroke", "#007acc"); 
             horizontalLine.setAttribute("stroke-width", "1");
             svg.appendChild(horizontalLine);
 
             const dimText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            dimText.setAttribute("x", (lineX + x) / 2);
-            dimText.setAttribute("y", lineYEnd - 5);
-            dimText.setAttribute("text-anchor", "middle");
-            dimText.setAttribute("class", "dim-text");
+            dimText.setAttribute("x", (lineX + x) / 2); 
+            dimText.setAttribute("y", lineYEnd - 5); 
+            dimText.setAttribute("text-anchor", "middle"); 
+            dimText.setAttribute("class", "dim-text"); 
             dimText.textContent = settings.frontDrillOffset;
             svg.appendChild(dimText);
-
+            
             frontDimAdded = true;
         }
     }
 
-    // קידוח ראשון
-    addDrill(xRightDrill, yDrill);
-
-    // קידוחים אמצעיים
-    for (let i = 0; i < rMidCount; i++) {
-        yDrill += rMidStep * scale;
-        addDrill(xRightDrill, yDrill);
-    }
+    // ציור כל הקידוחים לפי מיקומי ה-Y שחישבנו
+    hinges.forEach(h => {
+        addDrill(xRightDrill, padY + h * scale);
+    });
 }
 
 // Draws a front diagram in an SVG element.
 function draw() {
-
     if (!validateAllDimensions()) return;
 
     const frontW = mm(+document.getElementById('frontW').value);
     const cabH = mm(+document.getElementById('cabH').value);
     const rEdgeTop = mm(+document.getElementById('rEdgeTop').value);
     const rEdgeBottom = mm(+document.getElementById('rEdgeBottom').value);
-    const rMidCount = Math.max(1, mm(+document.getElementById('rMidCount').value) - 1);
-    const rMidStep = (cabH - rEdgeTop - rEdgeBottom) / rMidCount;
+    
+    // totalSpaces הוא כמות החללים בין הצירים
+    const totalSpaces = Math.max(1, mm(+document.getElementById('rMidCount').value) - 1);
+    
+    // כמות מידות האמצע העריכות: תמיד חלל אחד מוקדש לעודף ולכן לא נחשב.
+    const editableStepsCount = Math.max(0, totalSpaces - 1);
+
+    function getStepsForSide(sideStr) {
+        let steps = new Array(editableStepsCount).fill(null);
+        const availableMidHeight = cabH - rEdgeTop - rEdgeBottom;
+        const defaultStep = availableMidHeight / totalSpaces; 
+
+        for (let i = 0; i < editableStepsCount; i++) {
+            let dimId = `rMid-${sideStr}-${i}`;
+            if (editableDimensions[dimId] !== undefined) {
+                steps[i] = parseFloat(editableDimensions[dimId]);
+            } else {
+                steps[i] = defaultStep;
+            }
+        }
+        return steps;
+    }
+
     const scale = 0.16;
     const padX = 500, padY = 50;
     const W = frontW * scale, H = cabH * scale;
@@ -980,141 +1023,95 @@ function draw() {
     const overlay = document.querySelector('.svg-overlay');
     overlay && (overlay.style.display = 'none');
 
-    if (sideSelect === 'both' && !excelRows.length) {  // אין קובץ אקסל
+    if (sideSelect === 'both' && !excelRows.length) { 
         const frontVal = mm(+document.getElementById('frontW').value);
         leftDoorWidth = frontVal;
         rightDoorWidth = frontVal;
     }
 
-    // הגדרת viewBox לפי סוג הדלת
     let totalWidth, totalHeight;
-    let startX = padX; // נקודת התחלה לציור
+    let startX = padX;
 
     if (sideSelect === 'both') {
-        // עבור שתי דלתות - רוחב כפול
         const totalDoorsWidth = (leftDoorWidth * scale) + (rightDoorWidth * scale) + DOOR_SPACING;
-
         totalWidth = padX + totalDoorsWidth + DIMENSIONS_SPACE;
         totalHeight = padY + H + BOTTOM_MARGIN;
-
-        // חישוב נקודת התחלה כדי למרכז את הדלתות
         const availableSpace = totalWidth - DIMENSIONS_SPACE;
         startX = (availableSpace - totalDoorsWidth + padX) / 2;
     } else {
-        // עבור דלת יחידה
         totalWidth = padX + W + DIMENSIONS_SPACE;
         totalHeight = padY + H + BOTTOM_MARGIN;
-        startX = padX; // נקודת התחלה רגילה עבור דלת יחידה
+        startX = padX;
     }
 
     svg.setAttribute('viewBox', `0 0 ${totalWidth} ${totalHeight}`);
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
     svg.innerHTML = `
-    <defs>
-    <marker
-    id="arr"
-    viewBox="0 0 10 10"
-    refX="5"
-    refY="5"
-    markerWidth="0"
-    markerHeight="0"
-    orient="auto">
-    <circle
-    cx="5"
-    cy="5"
-    r="4"
-    fill="#54a5f5"/>
-    </marker>
-    </defs>
-    `;
+    <defs><marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="0" markerHeight="0" orient="auto"><circle cx="5" cy="5" r="4" fill="#54a5f5"/></marker></defs>`;
 
     const profileType = document.getElementById('profileType').selectedOptions[0].text;
     const settings = ProfileConfig.getProfileSettings(profileType);
 
     const prepForInput = document.getElementById("prepFor");
-    if (prepForInput) {
-        prepForInput.value = settings.defaultPrepFor;
-    }
+    if (prepForInput) prepForInput.value = settings.defaultPrepFor;
 
     if (sideSelect === 'both') {
-        // ציור שתי דלתות - מרוכז
-        const doorSpacing = 10; // רווח בין הדלתות
+        const doorSpacing = 10; 
         const leftDoorX = startX;
         const rightDoorX = startX + (leftDoorWidth * 0.16) + doorSpacing;
 
-        // ציור דלת שמאל
-        drawSingleDoor(svg, leftDoorX, padY, leftDoorWidth * 0.16, H, 'left', settings, scale, leftDoorWidth, cabH, rEdgeTop, rEdgeBottom, rMidCount, rMidStep, profileType, 0);
+        const leftSteps = getStepsForSide('left');
+        const rightSteps = getStepsForSide('right');
 
-        // ציור דלת ימין
-        drawSingleDoor(svg, rightDoorX, padY, rightDoorWidth * 0.16, H, 'right', settings, scale, rightDoorWidth, cabH, rEdgeTop, rEdgeBottom, rMidCount, rMidStep, profileType, 1);
+        drawSingleDoor(svg, leftDoorX, padY, leftDoorWidth * 0.16, H, 'left', settings, scale, leftDoorWidth, cabH, rEdgeTop, rEdgeBottom, totalSpaces, leftSteps, profileType, 0);
+        drawSingleDoor(svg, rightDoorX, padY, rightDoorWidth * 0.16, H, 'right', settings, scale, rightDoorWidth, cabH, rEdgeTop, rEdgeBottom, totalSpaces, rightSteps, profileType, 1);
 
-        // מידות עבור שתי דלתות
         const dimY1 = padY + H + 30;
-
-        // רוחב דלת שמאל
         svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${leftDoorX}" y1="${dimY1}" x2="${leftDoorX + (leftDoorWidth * 0.16)}" y2="${dimY1}"></line>`);
-        addDimDot(svg, leftDoorX, dimY1);
-        addDimDot(svg, leftDoorX + (leftDoorWidth * 0.16), dimY1);
+        addDimDot(svg, leftDoorX, dimY1); addDimDot(svg, leftDoorX + (leftDoorWidth * 0.16), dimY1);
         createEditableDimension(svg, leftDoorX + (leftDoorWidth * 0.16) / 2, dimY1 + 16, leftDoorWidth, `frontW_left`, 0, null, null, false);
 
-        // רוחב דלת ימין
         svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${rightDoorX}" y1="${dimY1}" x2="${rightDoorX + (rightDoorWidth * 0.16)}" y2="${dimY1}"></line>`);
-        addDimDot(svg, rightDoorX, dimY1);
-        addDimDot(svg, rightDoorX + (rightDoorWidth * 0.16), dimY1);
+        addDimDot(svg, rightDoorX, dimY1); addDimDot(svg, rightDoorX + (rightDoorWidth * 0.16), dimY1);
         createEditableDimension(svg, rightDoorX + (rightDoorWidth * 0.16) / 2, dimY1 + 16, rightDoorWidth, `frontW_right`, 0, null, null, false);
 
-        // גובה כולל - צד שמאל
         const xTotal = leftDoorX - 30;
         svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xTotal - 10}" y1="${padY}" x2="${xTotal - 10}" y2="${padY + H}"></line>`);
-        addDimDot(svg, xTotal - 10, padY);
-        addDimDot(svg, xTotal - 10, padY + H);
+        addDimDot(svg, xTotal - 10, padY); addDimDot(svg, xTotal - 10, padY + H);
         createEditableDimension(svg, xTotal - 20, padY + H / 2, cabH, `cabH`, -90, xTotal - 20, padY + H / 2, null, null, false);
 
-        drawDrillChain(svg, rightDoorX, padY, rightDoorWidth * 0.16, H, rEdgeTop, rEdgeBottom, rMidCount, rMidStep, scale, "right");
+        drawDrillChain(svg, rightDoorX, padY, rightDoorWidth * 0.16, H, rEdgeTop, rEdgeBottom, totalSpaces, rightSteps, scale, "right");
 
-        // הערות
         const noteHeight = padY + H / 2;
-        const noteOffset = 100;
-        addNoteRotated(svg, leftDoorX - noteOffset, noteHeight, settings.rightNotes, -90);
-    }
+        addNoteRotated(svg, leftDoorX - 100, noteHeight, settings.rightNotes, -90);
+    } else {
+        const steps = getStepsForSide(sideSelect);
 
-    else {
-        // ציור דלת יחידה (הקוד המקורי)
-        drawSingleDoor(svg, startX, padY, W, H, sideSelect, settings, scale, frontW, cabH, rEdgeTop, rEdgeBottom, rMidCount, rMidStep, profileType);
+        drawSingleDoor(svg, startX, padY, W, H, sideSelect, settings, scale, frontW, cabH, rEdgeTop, rEdgeBottom, totalSpaces, steps, profileType);
 
-        // מידות רוחב
         const dimY1 = padY + H + 30;
         svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${startX}" y1="${dimY1}" x2="${startX + W}" y2="${dimY1}"></line>`);
-        addDimDot(svg, startX, dimY1);
-        addDimDot(svg, startX + W, dimY1);
+        addDimDot(svg, startX, dimY1); addDimDot(svg, startX + W, dimY1);
         createEditableDimension(svg, startX + W / 2, dimY1 + 16, frontW, `frontW`, 0, null, null, false);
 
-        // גובה כולל
         let xTotal = sideSelect === "right" ? startX - 30 : startX + W + 40;
         svg.insertAdjacentHTML('beforeend', `<line class="dim" x1="${xTotal - 10}" y1="${padY}" x2="${xTotal - 10}" y2="${padY + H}"></line>`);
-        addDimDot(svg, xTotal - 10, padY);
-        addDimDot(svg, xTotal - 10, padY + H);
+        addDimDot(svg, xTotal - 10, padY); addDimDot(svg, xTotal - 10, padY + H);
         createEditableDimension(svg, xTotal - 20, padY + H / 2, cabH, `cabH`, -90, xTotal - 20, padY + H / 2, null, null, false);
 
-        // שרשראות ומדידות
-        drawDrillChain(svg, startX, padY, W, H, rEdgeTop, rEdgeBottom, rMidCount, rMidStep, scale, sideSelect);
+        drawDrillChain(svg, startX, padY, W, H, rEdgeTop, rEdgeBottom, totalSpaces, steps, scale, sideSelect);
 
-        // הערות
         const trueLeft = startX - 40;
         const trueRight = startX + W + 30;
         const noteHeight = padY + H / 2;
-        const noteOffset = 50;
-
         if (sideSelect === "right") {
-            addNoteRotated(svg, trueRight + noteOffset, noteHeight, settings.rightNotes, 90);
-        }
-        else {
-            addNoteRotated(svg, trueLeft - noteOffset, noteHeight, settings.rightNotes, -90);
+            addNoteRotated(svg, trueRight + 50, noteHeight, settings.rightNotes, 90);
+        } else {
+            addNoteRotated(svg, trueLeft - 50, noteHeight, settings.rightNotes, -90);
         }
     }
 
-    // סיכום מידות
     const readoutContent = document.getElementById('readout-content');
     if (readoutContent) {
         const doorType = sideSelect === 'both' ? 'שתי דלתות' : (sideSelect === 'right' ? 'ימין' : 'שמאל');
@@ -1122,7 +1119,7 @@ function draw() {
             `<div class="readout-item">סוג דלת: <strong>${doorType}</strong></div>
              <div class="readout-item">גובה חזית: <strong>${cabH} מ״מ</strong></div>
              <div class="readout-item">רוחב חזית: <strong>${frontW} מ״מ</strong></div>
-             <div class="readout-item">צירים: <strong>${rEdge} / ${rMidStep.toFixed(0)} / ${rEdge} מ״מ</strong></div>`;
+             <div class="readout-item">צירים: <strong>${rEdgeTop} / אמצע / ${rEdgeBottom} מ״מ</strong></div>`;
         const readout = document.getElementById('readout');
         if (readout) readout.style.display = 'block';
     }
@@ -1132,7 +1129,17 @@ function draw() {
 sapakSelect.addEventListener("change", fillProfileOptions);
 profileSelect.addEventListener("change", draw);
 sideSelect.addEventListener("change", draw);
-rMidCount.addEventListener("change", draw);
+rMidCount.addEventListener("change", function() {
+    // מחיקת כל מידות האמצע השמורות מהזיכרון ברגע שמשנים כמות צירים
+    Object.keys(editableDimensions).forEach(key => {
+        if (key.includes("rMid")) {
+            delete editableDimensions[key];
+        }
+    });
+    
+    // ציור מחדש (עכשיו הקוד יבצע חלוקה שווה אוטומטית)
+    draw();
+});
 frontW.addEventListener("change", fillProfileOptions);
 cabH.addEventListener("change", fillProfileOptions);
 
