@@ -521,6 +521,44 @@ function searchUnit(unitNum) {
     frontW.value = row['רוחב'] || '';
     cabH.value = row['אורך'] || '';
 
+// --- לוגיקת מיקום צירים מהאקסל ---
+    if (row['מיקום צירים']) {
+        // מנקים רווחים ומעלימים את המילה 'mm' כדי לקבל נטו מספרים וסמנים
+        const hingesStr = String(row['מיקום צירים']).trim().replace(/mm/g, '');
+        // מפצלים לפי נקודתיים: ייתן לנו למשל ['100', '660', '660', '1', '100']
+        const parts = hingesStr.split(':');
+        
+        // מוודאים שיש לנו לפחות תחתון, סמן '1', ועליון
+        if (parts.length >= 3) {
+            const bottomEdge = Number(parts[0]); // הערך הראשון הוא התחתון
+            const topEdge = Number(parts[parts.length - 1]); // הערך האחרון הוא העליון
+            
+            // המרווחים הפנימיים הם כל מה שבין הציר הראשון לסמן ה-'1' (שהוא תמיד אחד לפני האחרון)
+            const gaps = parts.slice(1, -2).map(Number); 
+            
+            const rEdgeBottomInput = document.getElementById('rEdgeBottom');
+            const rEdgeTopInput = document.getElementById('rEdgeTop');
+            const rMidCountInput = document.getElementById('rMidCount');
+            
+            // עדכון השדות בטופס
+            if (rEdgeBottomInput) rEdgeBottomInput.value = bottomEdge;
+            if (rEdgeTopInput) rEdgeTopInput.value = topEdge; 
+            if (rMidCountInput) rMidCountInput.value = gaps.length + 2; // 2 קצוות + כמות מרווחי האמצע
+            
+            // איפוס מרווחי אמצע קודמים (שלא יהיו שאריות מיחידה קודמת)
+            Object.keys(editableDimensions).forEach(key => {
+                if (key.includes("rMid")) delete editableDimensions[key];
+            });
+            
+            // הגדרת המרווחים לשרטוט - הציור כבר יחשב את העודף אוטומטית למעלה!
+            gaps.forEach((gap, index) => {
+                editableDimensions[`rMid-left-${index}`] = gap;
+                editableDimensions[`rMid-right-${index}`] = gap;
+            });
+        }
+    }
+    // ---------------------------------
+	
     if (row['סוג החומר']) {
         const materialType = String(row['סוג החומר']).trim();
 
