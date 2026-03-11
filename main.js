@@ -327,36 +327,41 @@ function showCustomAlert(message, type = "error") {
         alertDiv.appendChild(spinner);
     }
 
-    // מוחק את ההודעה אחרי 3 שניות (רק בשגיאה)
-    if (type === "success") {
-        setTimeout(() => {
-            alertDiv.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => {
-                if (alertDiv.parentNode) {
-                    alertDiv.parentNode.removeChild(alertDiv);
-                }
-            }, 300);
-        }, 3000);
-    }
-
     // טקסט
     const text = document.createElement("span");
     text.textContent = message;
     alertDiv.appendChild(text);
 
-    document.body.appendChild(alertDiv);
-
-    // מוחק את ההודעה אחרי 3 שניות (רק בשגיאה)
-    if (type === "error") {
+    // פונקציה לסגירה חלקה
+    function dismissAlert() {
+        alertDiv.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+        alertDiv.style.opacity = '0';
+        alertDiv.style.transform = 'translateX(110%)';
         setTimeout(() => {
-            alertDiv.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => {
-                if (alertDiv.parentNode) {
-                    alertDiv.parentNode.removeChild(alertDiv);
-                }
-            }, 300);
-        }, 3000);
+            if (alertDiv.parentNode) {
+                alertDiv.parentNode.removeChild(alertDiv);
+            }
+        }, 400);
     }
+
+    if (type === "error") {
+        // סגירה בלחיצה בלבד
+        alertDiv.style.cursor = 'pointer';
+        alertDiv.title = 'לחץ לסגירה';
+        alertDiv.addEventListener('click', dismissAlert);
+
+        // אייקון X קטן
+        const closeIcon = document.createElement('span');
+        closeIcon.textContent = ' ✕';
+        closeIcon.style.opacity = '0.6';
+        closeIcon.style.fontSize = '12px';
+        alertDiv.appendChild(closeIcon);
+    } else if (type === "success") {
+        // סגירה אוטומטית אחרי 3 שניות
+        setTimeout(dismissAlert, 3000);
+    }
+
+    document.body.appendChild(alertDiv);
 }
 
 // Populates the profile dropdown based on the selected supplier
@@ -522,6 +527,7 @@ function searchUnit(unitNum) {
     cabH.value = row['אורך'] || '';
 
 // --- לוגיקת מיקום צירים מהאקסל ---
+    let hingesParsed = false;
     if (row['מיקום צירים']) {
         // מנקים רווחים ומעלימים את המילה 'mm' כדי לקבל נטו מספרים וסמנים
         const hingesStr = String(row['מיקום צירים']).trim().replace(/mm/g, '');
@@ -555,8 +561,12 @@ function searchUnit(unitNum) {
                 editableDimensions[`rMid-left-${index}`] = gap;
                 editableDimensions[`rMid-right-${index}`] = gap;
             });
+            hingesParsed = true;
         }
+    } else {
+        showCustomAlert('⚠️ עמודת מיקום צירים ריקה – יש להזין את הנתונים ידנית', 'error');
     }
+    excelFileInput._hingesParsed = hingesParsed;
     // ---------------------------------
 	
     if (row['סוג החומר']) {
@@ -1667,6 +1677,22 @@ excelFile.addEventListener("change", function (e) {
         cabH.style.color = '#888888';
         cabH.style.userSelect = 'none';
         cabH.title = "שדה זה נטען אוטומטית מהקובץ ולא ניתן לשינוי";
+
+        if (excelFileInput._hingesParsed) {
+            const rEdgeTopInput    = document.getElementById('rEdgeTop');
+            const rEdgeBottomInput = document.getElementById('rEdgeBottom');
+            const rMidCountInput   = document.getElementById('rMidCount');
+
+            [rEdgeTopInput, rEdgeBottomInput, rMidCountInput].forEach(el => {
+                if (!el) return;
+                el.readOnly = true;
+                el.disabled = true;
+                el.style.backgroundColor = "#f8f9fb";
+                el.style.color = '#888888';
+                el.style.userSelect = 'none';
+                el.title = "שדה זה נטען אוטומטית מהקובץ ולא ניתן לשינוי";
+            });
+        }
     };
     reader.readAsArrayBuffer(file);
 });
