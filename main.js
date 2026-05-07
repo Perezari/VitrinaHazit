@@ -841,11 +841,37 @@ async function downloadPdf() {
         }
 
         savePdf();
+        markUnitExported(unitDetails.planNum, unitDetails.unitNum);
 
     } catch (err) {
         console.error('downloadPdf error:', err);
         alert('אירעה שגיאה בייצוא PDF. בדוק את הקונסול לפרטים.');
     }
+}
+
+// Persist exported (planNum, unitNum) tuples in localStorage so the unit
+// dropdown can mark previously-exported units with a checkmark.
+function getExportedUnitsForPlan(planNum) {
+    if (!planNum) return new Set();
+    try {
+        const raw = localStorage.getItem('vitrina-exported-' + planNum);
+        return new Set(raw ? JSON.parse(raw) : []);
+    } catch (_) { return new Set(); }
+}
+function markUnitExported(planNum, unitNum) {
+    if (!planNum || !unitNum) return;
+    const set = getExportedUnitsForPlan(planNum);
+    set.add(String(unitNum).trim());
+    try {
+        localStorage.setItem('vitrina-exported-' + planNum, JSON.stringify([...set]));
+    } catch (_) {}
+    // Refresh badges in the dropdown
+    document.querySelectorAll(`[data-unit-num="${String(unitNum).trim()}"]`).forEach((el) => {
+        el.classList.add('is-exported');
+    });
+    window.dispatchEvent(new CustomEvent('vitrina:units-exported-changed', {
+        detail: { planNum, unitNum: String(unitNum).trim() }
+    }));
 }
 
 // Draws a vertical drill chain dimension on the specified side of the door.
@@ -1377,62 +1403,43 @@ excelFile.addEventListener("change", function (e) {
 
         // יצירת custom dropdown עם checkboxes
         if (unitNumInput.tagName.toLowerCase() === "input") {
-            // יצירת container לכל המערכת
+            // Container reuses .custom-select so the trigger/menu inherit
+            // the same theme-aware styling as the wrapped <select>s.
             const dropdownContainer = document.createElement("div");
-            dropdownContainer.style.position = "relative";
-            dropdownContainer.style.width = "100%";
+            dropdownContainer.className = "custom-select unit-multi-select";
 
-            // יצירת wrapper לשדה והחץ
             const inputWrapper = document.createElement("div");
             inputWrapper.style.position = "relative";
             inputWrapper.style.width = "100%";
 
-            // יצירת השדה שמציג את הבחירות
+            // The displayInput stays an input (readOnly) so existing main.js
+            // logic that reads/sets .value keeps working unchanged. We just
+            // skin it like a custom-select-trigger.
             const displayInput = document.createElement("input");
             displayInput.type = "text";
             displayInput.id = "unitNum";
             displayInput.readOnly = true;
-            displayInput.style.cursor = "pointer";
-            displayInput.style.width = "100%";
-            displayInput.style.padding = "3px";
-            displayInput.style.border = "1px solid #dfe6e9";
-            displayInput.style.borderRadius = "10px";
-            displayInput.style.boxSizing = "border-box;";
-            displayInput.style.backgroundColor = "white";
-            displayInput.style.fontSize = "15px";
-            displayInput.style.color = "#2c3e50";
-            displayInput.style.transition = "all 0.3s ease";
+            displayInput.className = "custom-select-trigger unit-multi-trigger";
 
-            // יצירת חץ dropdown
-            const dropdownArrow = document.createElement("span");
-            dropdownArrow.innerHTML = "▼";
-            dropdownArrow.style.position = "absolute";
-            dropdownArrow.style.left = "10px";
-            dropdownArrow.style.top = "50%";
-            dropdownArrow.style.transform = "translateY(-50%)";
-            dropdownArrow.style.pointerEvents = "none";
-            dropdownArrow.style.fontSize = "12px";
-            dropdownArrow.style.color = "#666";
-            dropdownArrow.style.transition = "transform 0.3s";
+            // Match the chevron style used by the wrapped <select>s
+            const dropdownArrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            dropdownArrow.setAttribute('class', 'custom-select-chevron unit-multi-chevron');
+            dropdownArrow.setAttribute('viewBox', '0 0 24 24');
+            dropdownArrow.setAttribute('fill', 'none');
+            dropdownArrow.setAttribute('stroke', 'currentColor');
+            dropdownArrow.setAttribute('stroke-width', '2.5');
+            dropdownArrow.setAttribute('stroke-linecap', 'round');
+            dropdownArrow.setAttribute('stroke-linejoin', 'round');
+            dropdownArrow.setAttribute('aria-hidden', 'true');
+            dropdownArrow.innerHTML = '<polyline points="6 9 12 15 18 9"></polyline>';
 
             inputWrapper.appendChild(displayInput);
             inputWrapper.appendChild(dropdownArrow);
 
-            // יצירת הרשימה הנפתחת
+            // Menu reuses .custom-select-menu — its visibility is driven by
+            // the .is-open class on the parent .custom-select container.
             const dropdownList = document.createElement("div");
-            dropdownList.style.position = "absolute";
-            dropdownList.style.top = "100%";
-            dropdownList.style.left = "0";
-            dropdownList.style.right = "0";
-            dropdownList.style.maxHeight = "300px";
-            dropdownList.style.overflowY = "auto";
-            dropdownList.style.backgroundColor = "white";
-            dropdownList.style.border = "1px solid #ccc";
-            dropdownList.style.borderRadius = "4px";
-            dropdownList.style.marginTop = "2px";
-            dropdownList.style.display = "none";
-            dropdownList.style.zIndex = "1000";
-            dropdownList.style.boxShadow = "0 4px 6px rgba(0,0,0,0.1)";
+            dropdownList.className = "custom-select-menu unit-multi-menu";
 
             // שמירת מצב הבחירות
             const selectedUnits = new Map();
@@ -1515,9 +1522,14 @@ excelFile.addEventListener("change", function (e) {
                     radio.style.marginLeft = "8px";
                     radio.style.cursor = "pointer";
 
+                    const _planNum = document.getElementById('planNum').value;
+                    const _exportedSet = getExportedUnitsForPlan(_planNum);
                     const label = document.createElement("label");
                     label.htmlFor = `unit-${singleUnit}`;
+                    label.dataset.unitNum = String(singleUnit).trim();
                     label.textContent = `יחידה ${singleUnit}`;
+                    label.classList.add('unit-label');
+                    if (_exportedSet.has(String(singleUnit).trim())) label.classList.add('is-exported');
                     label.style.cursor = "pointer";
                     label.style.flex = "1";
                     label.style.fontSize = "14px";
@@ -1583,9 +1595,14 @@ excelFile.addEventListener("change", function (e) {
                         checkbox.style.marginLeft = "8px";
                         checkbox.style.cursor = "pointer";
 
+                        const _planNum2 = document.getElementById('planNum').value;
+                        const _exportedSet2 = getExportedUnitsForPlan(_planNum2);
                         const label = document.createElement("label");
                         label.htmlFor = `unit-${unitNum}`;
+                        label.dataset.unitNum = String(unitNum).trim();
                         label.textContent = `יחידה ${unitNum}`;
+                        label.classList.add('unit-label');
+                        if (_exportedSet2.has(String(unitNum).trim())) label.classList.add('is-exported');
                         label.style.cursor = "pointer";
                         label.style.flex = "1";
                         label.style.fontSize = "14px";
@@ -1616,18 +1633,16 @@ excelFile.addEventListener("change", function (e) {
                 dropdownList.appendChild(groupDiv);
             });
 
-            // טיפול בלחיצה על השדה
+            // Toggle .is-open on the .custom-select container — same pattern
+            // as the wrapped <select>s, so the menu uses the shared CSS
+            // for opacity/transform transitions.
             displayInput.addEventListener("click", function () {
-                const isVisible = dropdownList.style.display === "block";
-                dropdownList.style.display = isVisible ? "none" : "block";
-                dropdownArrow.style.transform = isVisible ? "translateY(-50%)" : "translateY(-50%) rotate(180deg)";
+                dropdownContainer.classList.toggle('is-open');
             });
 
-            // סגירה בלחיצה מחוץ לרשימה
             document.addEventListener("click", function (e) {
                 if (!dropdownContainer.contains(e.target)) {
-                    dropdownList.style.display = "none";
-                    dropdownArrow.style.transform = "translateY(-50%)";
+                    dropdownContainer.classList.remove('is-open');
                 }
             });
 
@@ -1806,58 +1821,70 @@ buttons.forEach(button => {
     });
 });
 
+// Inline error UI for dimension validation. Each input gets a sibling span
+// (.field-error) with the message; styling lives in style.css.
+function getOrCreateFieldError(input) {
+    const field = input.closest('.field');
+    if (!field) return null;
+    let err = field.querySelector('.field-error');
+    if (!err) {
+        err = document.createElement('span');
+        err.className = 'field-error';
+        field.appendChild(err);
+    }
+    return err;
+}
+
+function setFieldError(input, message) {
+    const stepper = input.closest('.stepper');
+    if (stepper) stepper.classList.add('has-error');
+    else input.classList.add('has-error');
+    const err = getOrCreateFieldError(input);
+    if (err) err.textContent = message;
+}
+
+function clearFieldError(input) {
+    const stepper = input.closest('.stepper');
+    if (stepper) stepper.classList.remove('has-error');
+    else input.classList.remove('has-error');
+    const field = input.closest('.field');
+    const err = field && field.querySelector('.field-error');
+    if (err) err.textContent = '';
+}
+
 // Validation and correction functions
 function validateAndCorrectValue(input, inputId) {
     const value = input.value.trim();
     if (value === '') {
-        // מסירת סימון שגיאה אם השדה ריק
-        input.style.borderColor = '';
-        input.style.backgroundColor = '';
+        clearFieldError(input);
         return;
     }
-
-    if (!validateDimension(inputId, value)) {
-
-        // סימון חזותי של שגיאה
-        input.style.borderColor = '#e74c3c';
-        input.style.backgroundColor = '#fdf2f2';
-
-        setTimeout(() => {
-            input.style.borderColor = '';
-            input.style.backgroundColor = '';
-        }, 2000);
-
-        return;
-    }
-
-    // אם הערך תקין - מסירים סימון שגיאה
-    input.style.borderColor = '';
-    input.style.backgroundColor = '';
+    if (!validateDimension(inputId, value, input)) return;
+    clearFieldError(input);
     draw();
 }
 
 // Validation limits for each dimension
-function validateDimension(inputId, value) {
+function validateDimension(inputId, value, inputEl) {
     const limits = DIMENSION_LIMITS[inputId];
     if (!limits) return true;
 
+    const input = inputEl || document.getElementById(inputId);
     const numValue = Number(value);
 
     if (isNaN(numValue)) {
-        showCustomAlert(`${limits.name} חייב להיות מספר`, "error");
+        if (input) setFieldError(input, `${limits.name} חייב להיות מספר`);
         return false;
     }
-
     if (numValue < limits.min) {
-        showCustomAlert(`${limits.name} לא יכול להיות פחות מ-${limits.min}`, "error");
+        if (input) setFieldError(input, `מינימום ${limits.min}mm`);
         return false;
     }
-
     if (numValue > limits.max) {
-        showCustomAlert(`${limits.name} לא יכול להיות יותר מ-${limits.max}`, "error");
+        if (input) setFieldError(input, `מקסימום ${limits.max}mm`);
         return false;
     }
-
+    if (input) clearFieldError(input);
     return true;
 }
 
