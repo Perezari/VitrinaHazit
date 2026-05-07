@@ -1174,22 +1174,29 @@ function draw() {
 }
 
 //Listeners
-sapakSelect.addEventListener("change", fillProfileOptions);
-profileSelect.addEventListener("change", draw);
-sideSelect.addEventListener("change", draw);
-rMidCount.addEventListener("change", function() {
-    // מחיקת כל מידות האמצע השמורות מהזיכרון ברגע שמשנים כמות צירים
+function clearMidHingeOverrides() {
     Object.keys(editableDimensions).forEach(key => {
         if (key.includes("rMid")) {
             delete editableDimensions[key];
         }
     });
-    
-    // ציור מחדש (עכשיו הקוד יבצע חלוקה שווה אוטומטית)
+}
+
+sapakSelect.addEventListener("change", fillProfileOptions);
+profileSelect.addEventListener("change", draw);
+sideSelect.addEventListener("change", draw);
+rMidCount.addEventListener("change", function() {
+    clearMidHingeOverrides();
     draw();
 });
 frontW.addEventListener("change", fillProfileOptions);
-cabH.addEventListener("change", fillProfileOptions);
+cabH.addEventListener("change", function() {
+    // Available mid-height = cabH - rEdgeTop - rEdgeBottom. When cabH
+    // changes, any stored gap overrides become stale and overflow the new
+    // height. Drop them so the auto-distribution recomputes.
+    clearMidHingeOverrides();
+    fillProfileOptions();
+});
 
 // Load and process Excel file
 excelFile.addEventListener("change", function (e) {
