@@ -428,11 +428,31 @@
     new MutationObserver(render).observe(sel, { childList: true });
     sel.addEventListener('change', render);
 
+    // Expose render so external callers (e.g. the Excel-load badge sync)
+    // can refresh the trigger label after main.js sets the value
+    // programmatically — that path doesn't fire 'change'.
+    wrapper.__rerender = render;
+
     render();
   }
 
   // Enhance all selects inside the form panel
   document.querySelectorAll('.form-panel select').forEach(enhanceSelect);
+
+  // Force-refresh every enhanced select's trigger label. Used after Excel
+  // load: main.js sets sideSelect/Sapak values via .value = X (no event
+  // fires), so the trigger label otherwise stays stale.
+  function rerenderAllCustomSelects() {
+    document.querySelectorAll('.custom-select').forEach((w) => {
+      if (w.__rerender) w.__rerender();
+    });
+  }
+  const excelInputForSelects = document.getElementById('excelFile');
+  if (excelInputForSelects) {
+    excelInputForSelects.addEventListener('change', () => {
+      [50, 300, 800, 1500].forEach((d) => setTimeout(rerenderAllCustomSelects, d));
+    });
+  }
 
   // Close open dropdowns on outside click
   document.addEventListener('click', (e) => {
