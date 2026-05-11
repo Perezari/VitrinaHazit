@@ -1374,6 +1374,7 @@ excelFile.addEventListener("change", function (e) {
 
             const glassModel = row['מלואה'] || '';
             const partName = row['שם החלק'] || '';
+            const hinges = row['מיקום צירים'] || '';
 
             return {
                 height: String(height),
@@ -1381,16 +1382,18 @@ excelFile.addEventListener("change", function (e) {
                 profile: foundProfileType || materialType,
                 color: profileColor,
                 glass: String(glassModel),
-                partName: String(partName)
+                partName: String(partName),
+                hinges: String(hinges).trim()
             };
         }
 
-        // קיבוץ יחידות לפי פרמטרים זהים
+        // קיבוץ יחידות לפי פרמטרים זהים — כולל מיקום הצירים
+        // (אחרת יחידות עם אותן מידות אבל מיקומי קידוח שונים מקובצות יחד).
         const unitGroups = {};
         allUnitsWithDoors.forEach(unitNum => {
             const params = getUnitParams(unitNum);
             if (!params) return;
-            const key = `${params.height}|${params.width}|${params.profile}|${params.color}|${params.glass}|${params.partName}`;
+            const key = `${params.height}|${params.width}|${params.profile}|${params.color}|${params.glass}|${params.partName}|${params.hinges}`;
             if (!unitGroups[key]) unitGroups[key] = [];
             unitGroups[key].push(unitNum);
         });
