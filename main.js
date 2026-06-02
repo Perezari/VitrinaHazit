@@ -933,7 +933,10 @@ function drawDrillChain(svg, padX, padY, W, H, rEdgeTop, rEdgeBottom, totalSpace
 
 // Draws a single door with specified parameters and settings.
 function drawSingleDoor(svg, padX, padY, W, H, side, settings, scale, frontW, cabH, rEdgeTop, rEdgeBottom, totalSpaces, rMidSteps, profileType, doorIndex = 0) {
-    const drillR = 0.5;
+    // Drill size lives on the profile config; default keeps backward-compat.
+    // Set "drillRadius": 0 on a profile to hide drillings entirely (demo
+    // facades with no hinges).
+    const drillR = settings.drillRadius !== undefined ? settings.drillRadius : 0.5;
     const drillOffsetRight = 9.5;
     
     let frontDrillOffset = settings.hasDualDrill ? settings.frontDrillOffset * scale : settings.frontDrillOffset;
@@ -992,8 +995,11 @@ function drawSingleDoor(svg, padX, padY, W, H, side, settings, scale, frontW, ca
     
     // פונקציה פנימית להוספת הקידוחים עצמם
     function addDrill(x, y) {
+        // drillRadius=0 on the profile → demo facade with no drillings.
+        // Skip both the circles AND the dual-drill side dimension lines.
+        if (drillR === 0) return;
         let drillPositions = settings.hasDualDrill ? [y - (settings.extraDrillOffset / 2) * scale, y + (settings.extraDrillOffset / 2) * scale] : [y];
-        
+
         drillPositions.forEach(posY => {
             svg.insertAdjacentHTML('beforeend', `<circle cx="${x}" cy="${posY}" r="${drillR}" fill="none" stroke="#2c3e50" stroke-width="1"/>`);
         });
