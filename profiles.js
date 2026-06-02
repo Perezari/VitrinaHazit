@@ -12,7 +12,8 @@ const SUPPLIERS_PROFILES_MAP = {
         "מאיה",
         "דגם19",
         "דגם427",
-        "בארי"
+        "בארי",
+        "דגם_סופט_צבוע_אנטיסן38"
     ]
 };
 const SUPPLIER_LOGOS = {
@@ -178,6 +179,24 @@ const PROFILE_SETTINGS = {
         "description": "",
         "rightNotes": "הכנה לצירים",
         "LeftNotes": "הכנה לצירים"
+    },
+    "דגם_סופט_צבוע_אנטיסן38": {
+        "innerFrameStroke": "#2c3e50",
+        "innerFrameStrokeWidth": 0.5,
+        "innerFrameFill": "none",
+        "outerFrameStroke": "#2c3e50",
+        "outerFrameStrokeWidth": 0.5,
+        "outerFrameFill": "none",
+        "padSides": 26,
+        "padTopBot": 26,
+        "hasGerong": true,
+        "frontDrillOffset": 8,
+        "extraDrillOffset": 0,
+        "hasDualDrill": false,
+        "defaultPrepFor": "צירים",
+        "description": "",
+        "rightNotes": "",
+        "LeftNotes": ""
     }
 };
 return {
