@@ -121,87 +121,134 @@ function createEditableDimension(svg, x, y, value, id, rotation = 0, rotateX = n
     return text;
 }
 
-//Function to handle editing a dimension
+//Function to handle editing a dimension — in-place, no floating chrome.
+// The editor is an HTML <div contentEditable> positioned absolutely on top
+// of the SVG (inside .canvas-stage, which is position: relative). Critically,
+// it is NOT added to the SVG, so the viewBox tightener in ui-enhancements.js
+// doesn't see a childList change and never re-fits the viewBox. This is what
+// prevents the drawing from jumping when editing begins/ends.
 function editDimension(textElement, dimensionId) {
     const currentValue = editableDimensions[dimensionId];
-    const rect = textElement.getBoundingClientRect();
-    const svgRect = document.getElementById('svg').getBoundingClientRect();
+    const svg = document.getElementById('svg');
+    const container = svg.parentElement; // .canvas-stage (position: relative)
 
-    const input = document.createElement("input");
-    input.type = "text";
-    input.value = currentValue;
-    input.style.position = "absolute";
-    input.style.left = (rect.left - svgRect.left + 40) + "px";
-    input.style.top = (rect.top - svgRect.top + 19) + "px";
-    input.style.width = "45px";
-    input.style.height = "25px";
-    input.style.fontSize = "12px";
-    input.style.textAlign = "center";
-    input.style.border = "1px dashed #007acc";
-    input.style.borderRadius = "4px";
-    input.style.backgroundColor = "white";
-    input.style.zIndex = "1000";
-    input.style.direction = "ltr";
+    // Screen-space geometry of the SVG text (already includes the rotation).
+    const textRect = textElement.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
 
-    const svgContainer = document.getElementById('svg').parentElement;
-    svgContainer.appendChild(input);
+    // The SVG text's CSS font-size is 13 in USER units; how many screen
+    // pixels that becomes depends on the SVG's user-to-screen scale. Pull
+    // the scale from the CTM so the HTML overlay matches the rendered size.
+    const ctm = svg.getScreenCTM();
+    const svgScale = ctm ? Math.abs(ctm.a) : 1;
+    const fontSizePx = 13 * svgScale;
 
-    input.focus();
-    input.select();
+    // Parse the rotation angle so we can match it on the HTML overlay.
+    const transformAttr = textElement.getAttribute('transform') || '';
+    const rotMatch = transformAttr.match(/rotate\(([-\d.]+)/);
+    const angle = rotMatch ? parseFloat(rotMatch[1]) : 0;
+    const rotatedNinety = Math.abs(angle) === 90;
 
-    function removeInput() {
-        if (input && input.parentNode) {
-            input.parentNode.removeChild(input);
-        }
+    // For ±90° rotations the rotated screen bbox has w/h swapped from the
+    // text's natural size. Place an unrotated div sized to the natural
+    // text dimensions, then rotate via CSS — its rotated screen bbox will
+    // line up exactly with textRect.
+    const editorW = rotatedNinety ? textRect.height : textRect.width;
+    const editorH = rotatedNinety ? textRect.width : textRect.height;
+    const centerX = textRect.left + textRect.width / 2 - containerRect.left;
+    const centerY = textRect.top + textRect.height / 2 - containerRect.top;
+
+    const prevVisibility = textElement.style.visibility;
+    textElement.style.visibility = 'hidden';
+
+    const editor = document.createElement('div');
+    editor.contentEditable = 'true';
+    editor.spellcheck = false;
+    editor.textContent = currentValue;
+    editor.style.cssText = `
+        position: absolute;
+        left: ${centerX - editorW / 2}px;
+        top: ${centerY - editorH / 2}px;
+        width: ${editorW}px;
+        height: ${editorH}px;
+        text-align: center;
+        font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+        font-size: ${fontSizePx}px;
+        font-weight: 600;
+        color: #007acc;
+        outline: none;
+        line-height: ${editorH}px;
+        cursor: text;
+        background: transparent;
+        direction: ltr;
+        padding: 0;
+        margin: 0;
+        caret-color: #007acc;
+        white-space: nowrap;
+        z-index: 10;
+        ${angle ? `transform: rotate(${angle}deg); transform-origin: center;` : ''}
+    `;
+    container.appendChild(editor);
+
+    editor.focus();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    let done = false;
+    function cleanup() {
+        if (done) return;
+        done = true;
+        textElement.style.visibility = prevVisibility || '';
+        if (editor.parentNode) editor.parentNode.removeChild(editor);
     }
 
     function saveValue() {
-        const newValue = input.value.trim();
+        if (done) return;
+        const newValue = editor.textContent.trim();
         if (newValue && !isNaN(newValue)) {
             editableDimensions[dimensionId] = newValue;
-            
+
             let shouldRedraw = false;
             if (dimensionId.includes("rEdgeTop")) {
                 const el = document.getElementById('rEdgeTop');
-                if(el) { el.value = newValue; }
+                if (el) { el.value = newValue; }
                 shouldRedraw = true;
             } else if (dimensionId.includes("rEdgeBottom")) {
                 const el = document.getElementById('rEdgeBottom');
-                if(el) { el.value = newValue; }
+                if (el) { el.value = newValue; }
                 shouldRedraw = true;
             } else if (dimensionId.includes("frontW") && !dimensionId.includes("_")) {
                 const el = document.getElementById('frontW');
-                if(el) { el.value = newValue; }
+                if (el) { el.value = newValue; }
                 shouldRedraw = true;
             } else if (dimensionId.includes("cabH")) {
                 const el = document.getElementById('cabH');
-                if(el) { el.value = newValue; }
+                if (el) { el.value = newValue; }
                 shouldRedraw = true;
             } else if (dimensionId.includes("rMid")) {
                 shouldRedraw = true;
             }
 
             if (shouldRedraw) {
+                cleanup();
                 draw();
-            } else {
-                textElement.textContent = newValue;
+                return;
             }
+            textElement.textContent = newValue;
         }
-        removeInput();
+        cleanup();
     }
 
-    function cancelEdit() {
-        removeInput();
-    }
-
-    input.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") saveValue();
-        else if (e.key === "Escape") cancelEdit();
+    editor.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); saveValue(); }
+        else if (e.key === 'Escape') { e.preventDefault(); cleanup(); }
     });
-
-    input.addEventListener("blur", function () {
-        setTimeout(() => { if (input && input.parentNode) saveValue(); }, 0);
-    });
+    editor.addEventListener('blur', () => setTimeout(() => {
+        if (!done) saveValue();
+    }, 0));
 }
 
 // Adds a small dot (circle) to the SVG at specified coordinates.
