@@ -15,12 +15,10 @@ const DIMENSION_LIMITS = {
     },
     rEdgeTop: {
         min: 50,
-        max: 300,
         name: "מיקום ציר"
     },
     rEdgeBottom: {
         min: 50,
-        max: 300,
         name: "מיקום ציר"
     },
     //rMidCount: {
@@ -704,6 +702,10 @@ function generatePDFForUnit(unitNumber) {
 
 // Generates a PDF from the current SVG and unit details on the page.
 async function downloadPdf() {
+    if (!validateAllDimensions()) {
+        showCustomAlert("לא ניתן לייצא PDF - יש מידות לא תקינות", "error");
+        return;
+    }
     try {
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF(PDF_ORIENTATION, 'mm', PDF_SIZE);
@@ -1106,9 +1108,25 @@ function drawSingleDoor(svg, padX, padY, W, H, side, settings, scale, frontW, ca
     });
 }
 
+function setDownloadEnabled(enabled) {
+    downloadBtn.disabled = !enabled;
+    downloadBtn.style.backgroundColor = enabled ? "" : "#ccc";
+    downloadBtn.style.cursor = enabled ? "pointer" : "not-allowed";
+}
+
 // Draws a front diagram in an SVG element.
 function draw() {
-    if (!validateAllDimensions()) return;
+    if (!validateAllDimensions()) {
+        const svg = document.getElementById('svg');
+        if (svg) svg.innerHTML = "";
+        const overlay = document.querySelector('.svg-overlay');
+        if (overlay) overlay.style.display = 'none';
+        const readout = document.getElementById('readout');
+        if (readout) readout.style.display = 'none';
+        setDownloadEnabled(false);
+        return;
+    }
+    setDownloadEnabled(true);
 
     const frontW = mm(+document.getElementById('frontW').value);
     const cabH = mm(+document.getElementById('cabH').value);
@@ -1915,7 +1933,11 @@ function validateAndCorrectValue(input, inputId) {
         clearFieldError(input);
         return;
     }
-    if (!validateDimension(inputId, value, input)) return;
+    if (!validateDimension(inputId, value, input)) {
+        // Invalid value: draw() clears the diagram and disables PDF export
+        draw();
+        return;
+    }
     clearFieldError(input);
     draw();
 }
@@ -1932,11 +1954,11 @@ function validateDimension(inputId, value, inputEl) {
         if (input) setFieldError(input, `${limits.name} חייב להיות מספר`);
         return false;
     }
-    if (numValue < limits.min) {
+    if (limits.min !== undefined && numValue < limits.min) {
         if (input) setFieldError(input, `מינימום ${limits.min}mm`);
         return false;
     }
-    if (numValue > limits.max) {
+    if (limits.max !== undefined && numValue > limits.max) {
         if (input) setFieldError(input, `מקסימום ${limits.max}mm`);
         return false;
     }
@@ -1952,8 +1974,10 @@ function addDimensionValidation(inputId) {
     const limits = DIMENSION_LIMITS[inputId];
     if (limits) {
         // הוספת attributes ל-HTML
-        input.setAttribute('min', limits.min);
-        input.setAttribute('max', limits.max);
+        if (limits.min !== undefined) input.setAttribute('min', limits.min);
+        else input.removeAttribute('min');
+        if (limits.max !== undefined) input.setAttribute('max', limits.max);
+        else input.removeAttribute('max');
 
         // בדיקה כאשר המשתמש לוחץ Enter
         input.addEventListener('keydown', function (e) {
