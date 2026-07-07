@@ -9,7 +9,7 @@ const SUPPLIERS_PROFILES_MAP = {
     "nilsen": [
         "דגם424",
         "GENESIS",
-        "מאיה",
+        "מאי",
         "דגם19",
         "דגם427",
         "בארי",
@@ -94,22 +94,22 @@ const PROFILE_SETTINGS = {
         "rightNotes": "הכנה לצירים - קוטר קידוח 2.5 מ\"מ",
         "LeftNotes": ""
     },
-    "מאיה": {
+    "מאי": {
         "innerFrameStroke": "#2c3e50",
         "innerFrameStrokeWidth": 0.5,
         "innerFrameFill": "none",
         "outerFrameStroke": "#2c3e50",
         "outerFrameStrokeWidth": 0.5,
         "outerFrameFill": "none",
-        "padSides": 0,
-        "padTopBot": 0,
-        "hasGerong": false,
+        "padSides": 42,
+        "padTopBot": 42,
+        "hasGerong": true,
         "frontDrillOffset": 8,
         "extraDrillOffset": 0,
         "hasDualDrill": false,
         "drillRadius": 0.5,
         "defaultPrepFor": "צירים",
-        "description": "פרופיל מאיה",
+        "description": "פרופיל מאי",
         "rightNotes": "הכנה לצירים",
         "LeftNotes": ""
     },
