@@ -555,6 +555,10 @@
     document.querySelectorAll('.custom-select').forEach((w) => {
       if (w.__rerender) w.__rerender();
     });
+    // The supplier logo depends on sapakSelect.value, which main.js sets
+    // programmatically (no 'change' event fires) when an Excel unit loads —
+    // refresh it together with the trigger labels.
+    updateSupplierPreview();
   }
   const excelInputForSelects = document.getElementById('excelFile');
   if (excelInputForSelects) {
